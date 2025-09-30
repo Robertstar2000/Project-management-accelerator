@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { logAction } from '../utils/logging';
 
 const parseImpact = (impactString) => {
     const daysMatch = impactString.match(/([+-]?\s*\d+)\s*d/);
@@ -18,15 +19,41 @@ const applyImpact = (baseline, impact) => {
     };
 };
 
-export const RevisionControlView = ({ projectMetrics }) => {
-    const [cr, setCr] = useState({ title: 'Add new login provider', reason: 'User request for SSO', impactStr: '+15d +5000c' });
-    const [scenarios, setScenarios] = useState([
-        { id: 1, name: 'A: Use contractors', impactStr: '+10d +8000c' },
-        { id: 2, name: 'B: Defer feature', impactStr: '+0d +0c' },
-    ]);
+export const RevisionControlView = ({ project, saveProject }) => {
+    const [cr, setCr] = useState(project.changeRequest || { title: '', reason: '', impactStr: '' });
+    const [scenarios, setScenarios] = useState(project.scenarios || []);
     const [newScenario, setNewScenario] = useState({ name: '', impactStr: '' });
 
-    const baseline = useMemo(() => projectMetrics, [projectMetrics]);
+    useEffect(() => {
+        setCr(project.changeRequest || { title: '', reason: '', impactStr: '' });
+        setScenarios(project.scenarios || []);
+    }, [project]);
+
+    const handleCrChange = (newCrData) => {
+        setCr(newCrData);
+        saveProject({ ...project, changeRequest: newCrData });
+        logAction('Update Change Request', project.name, newCrData);
+    };
+
+    const handleScenariosChange = (newScenarios) => {
+        setScenarios(newScenarios);
+        saveProject({ ...project, scenarios: newScenarios });
+        logAction('Update Scenarios', project.name, newScenarios);
+    };
+
+    const handleAddScenario = (e) => {
+        e.preventDefault();
+        if (newScenario.name && newScenario.impactStr) {
+            const updatedScenarios = [...scenarios, { id: Date.now(), ...newScenario }];
+            handleScenariosChange(updatedScenarios);
+            setNewScenario({ name: '', impactStr: '' });
+        }
+    };
+    
+    const baseline = useMemo(() => ({
+        budget: project.budget,
+        endDate: project.endDate,
+    }), [project.budget, project.endDate]);
     
     const crImpact = useMemo(() => parseImpact(cr.impactStr), [cr.impactStr]);
     const crResult = useMemo(() => applyImpact(baseline, crImpact), [baseline, crImpact]);
@@ -37,14 +64,6 @@ export const RevisionControlView = ({ projectMetrics }) => {
         result: applyImpact(baseline, parseImpact(s.impactStr))
     })), [scenarios, baseline]);
 
-    const handleAddScenario = (e) => {
-        e.preventDefault();
-        if (newScenario.name && newScenario.impactStr) {
-            setScenarios([...scenarios, { id: Date.now(), ...newScenario }]);
-            setNewScenario({ name: '', impactStr: '' });
-        }
-    };
-    
     const currencyFormat = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
     
     const ImpactCell = ({ value, base }) => {
@@ -61,9 +80,9 @@ export const RevisionControlView = ({ projectMetrics }) => {
                 <div>
                     <h4>Submit Change Request</h4>
                     <form>
-                        <div className="form-group"><label>Title</label><input type="text" value={cr.title} onChange={e => setCr({...cr, title: e.target.value})} /></div>
-                        <div className="form-group"><label>Reason for Change</label><textarea rows={3} value={cr.reason} onChange={e => setCr({...cr, reason: e.target.value})}></textarea></div>
-                        <div className="form-group"><label>Impact (e.g. +15d +5000c)</label><input type="text" value={cr.impactStr} onChange={e => setCr({...cr, impactStr: e.target.value})} /></div>
+                        <div className="form-group"><label>Title</label><input type="text" value={cr.title} onChange={e => handleCrChange({...cr, title: e.target.value})} /></div>
+                        <div className="form-group"><label>Reason for Change</label><textarea rows={3} value={cr.reason} onChange={e => handleCrChange({...cr, reason: e.target.value})}></textarea></div>
+                        <div className="form-group"><label>Impact (e.g. +15d +5000c)</label><input type="text" value={cr.impactStr} onChange={e => handleCrChange({...cr, impactStr: e.target.value})} /></div>
                     </form>
                     
                     <h4 style={{marginTop: '2rem'}}>What-If Scenarios</h4>

@@ -141,6 +141,54 @@ export const GlobalStyles = `
   .chip-amber { background-color: var(--status-amber); color: var(--background-color); }
   .chip-red { background-color: var(--status-red); color: var(--background-color); }
 
+  /* Hero Section Features */
+  .features-container {
+      margin-top: 5rem;
+  }
+
+  .features-title {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 2.5rem;
+  }
+
+  .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 2rem;
+  }
+
+  .feature-card {
+      background-color: var(--card-background);
+      padding: 2rem 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      text-align: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
+  }
+  
+  .feature-card .icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--accent-color);
+  }
+  
+  .feature-card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 0.75rem;
+  }
+
+  .feature-card p {
+      font-size: 0.95rem;
+      color: var(--secondary-text);
+      line-height: 1.5;
+  }
+  
   /* Modal Styles */
   .modal-overlay {
     position: fixed;
@@ -168,6 +216,16 @@ export const GlobalStyles = `
   .modal-content h2 {
     margin-bottom: 1.5rem;
     text-align: center;
+  }
+
+  .modal-warning-text {
+      background-color: rgba(255, 77, 77, 0.1);
+      border: 1px solid var(--error-color);
+      color: var(--primary-text);
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      line-height: 1.5;
   }
 
   .form-group {
@@ -380,7 +438,17 @@ export const GlobalStyles = `
   .kanban-card.done { border-left-color: var(--task-done-color); text-decoration: line-through; opacity: 0.7; }
 
   /* Gantt Chart */
-  .gantt-container { overflow-x: auto; padding: 1rem; background-color: var(--background-color); border-radius: 4px; }
+  .gantt-container { overflow-x: auto; padding: 1rem; background-color: var(--background-color); border-radius: 4px; position: relative; }
+  .gantt-dependency-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .gantt-dependency-line {
+    stroke: var(--accent-color);
+    stroke-width: 2;
+    fill: none;
+    opacity: 0.7;
+  }
+  .gantt-dependency-arrow {
+    fill: var(--accent-color);
+  }
   .gantt-grid { display: grid; gap: 4px 0; align-items: center; }
   .gantt-header { grid-column: 2 / -1; display: grid; padding-left: 1rem; }
   .gantt-date { font-size: 0.75rem; color: var(--secondary-text); text-align: center; }
@@ -391,11 +459,27 @@ export const GlobalStyles = `
   .task-bar-inprogress { background: var(--task-inprogress-color); }
   .task-bar-review { background: var(--task-review-color); }
   .task-bar-done { background: var(--task-done-color); }
+  .gantt-task-bar.blocked {
+    background: repeating-linear-gradient(45deg, var(--status-red), var(--status-red) 10px, #ff6b6b 10px, #ff6b6b 20px);
+    cursor: not-allowed;
+  }
   
-  /* Milestones Table */
-  .milestones-table { width: 100%; border-collapse: collapse; }
+  /* Task List & Milestones Table */
+  .task-list-table, .milestones-table { width: 100%; border-collapse: collapse; }
+  .task-list-table th, .task-list-table td,
   .milestones-table th, .milestones-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
-  .milestones-table th { color: var(--secondary-text); }
+  .task-list-table th, .milestones-table th { color: var(--secondary-text); }
+  .dependency-select {
+    width: 100%;
+    min-height: 80px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--primary-text);
+  }
+  .dependency-select option {
+    padding: 0.25rem;
+  }
 
   /* Revision Control Tool */
   .impact-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
@@ -520,5 +604,96 @@ export const GlobalStyles = `
   .status-message.error {
     background-color: rgba(255, 77, 77, 0.1);
     color: var(--error-color);
+  }
+
+  /* Help FAB */
+  .help-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: var(--background-color);
+    border: none;
+    font-size: 1.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 242, 255, 0.3);
+    z-index: 999;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .help-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 15px rgba(0, 242, 255, 0.4);
+  }
+
+  /* Help Modal */
+  .help-modal-content {
+    max-width: 800px;
+    width: 95%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .help-modal-body {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding-right: 1rem; /* for scrollbar */
+  }
+
+  /* Styles for parsed markdown content */
+  .help-modal-body h1,
+  .help-modal-body h2,
+  .help-modal-body h3 {
+    color: var(--accent-color);
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .help-modal-body h1 { font-size: 2rem; }
+  .help-modal-body h2 { font-size: 1.7rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+  .help-modal-body h3 { font-size: 1.4rem; }
+  
+  .help-modal-body p {
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .help-modal-body ul,
+  .help-modal-body ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .help-modal-body li {
+    margin-bottom: 0.5rem;
+    line-height: 1.7;
+  }
+  
+  .help-modal-body a {
+    text-decoration: underline;
+  }
+  
+  .help-modal-body code {
+    background-color: var(--background-color);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  .help-modal-body strong {
+    font-weight: bold;
+    color: var(--primary-text);
+  }
+  
+  .help-modal-body hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 2rem 0;
   }
 `;

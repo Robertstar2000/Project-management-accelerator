@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 
 const getHealthChipClass = (health) => {
     switch (health) {
@@ -12,22 +12,109 @@ const getHealthChipClass = (health) => {
 const diffInDays = (date1, date2) => {
     const d1 = new Date(date1);
     const d2 = new Date(date2);
-    // FIX: Use getTime() for explicit date subtraction to satisfy TypeScript's type checker.
     return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
-    if (!tasks || !sprints) return <p>No task data available for Gantt chart.</p>;
+const TaskListView = ({ tasks, onUpdateTask }) => {
+    if (!tasks || tasks.length === 0) {
+        return <p>No tasks have been generated for this project yet.</p>;
+    }
 
-    const totalDays = diffInDays(projectStartDate, projectEndDate) + 1;
+    const handleDependencyChange = (taskId, newDeps) => {
+        const taskToUpdate = tasks.find(t => t.id === taskId);
+        if (taskToUpdate) {
+            onUpdateTask(taskId, { ...taskToUpdate, dependsOn: newDeps });
+        }
+    };
+
+    return (
+        <table className="task-list-table">
+            <thead>
+                <tr>
+                    <th>Task Name</th>
+                    <th>Dependencies</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {tasks.map(task => (
+                    <tr key={task.id}>
+                        <td>{task.name}</td>
+                        <td>
+                            <select
+                                multiple
+                                value={task.dependsOn || []}
+                                onChange={(e) => {
+                                    const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
+                                    handleDependencyChange(task.id, selectedIds);
+                                }}
+                                className="dependency-select"
+                                aria-label={`Dependencies for ${task.name}`}
+                            >
+                                {tasks.filter(t => t.id !== task.id).map(depTask => (
+                                    <option key={depTask.id} value={depTask.id}>
+                                        {depTask.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </td>
+                        <td>{task.status}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+};
+
+const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
+    if (!tasks || !sprints || tasks.length === 0) return <p>No task data available for Gantt chart.</p>;
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const taskBarRefs = useRef(new Map());
+    const [dependencyLines, setDependencyLines] = useState([]);
+    
+    const totalDays = Math.max(1, diffInDays(projectStartDate, projectEndDate) + 1);
     const dateArray = Array.from({ length: totalDays }, (_, i) => {
         const date = new Date(projectStartDate);
         date.setDate(date.getDate() + i);
         return date;
     });
 
+    useLayoutEffect(() => {
+        if (!containerRef.current) return;
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const lines = [];
+
+        tasks.forEach(task => {
+            if (task.dependsOn?.length) {
+                const currentTaskEl = taskBarRefs.current.get(task.id);
+                if (!currentTaskEl) return;
+                
+                const currRect = currentTaskEl.getBoundingClientRect();
+
+                task.dependsOn.forEach(depId => {
+                    const prerequisiteTaskEl = taskBarRefs.current.get(depId);
+                    if (!prerequisiteTaskEl) return;
+
+                    const preRect = prerequisiteTaskEl.getBoundingClientRect();
+                    
+                    const startX = preRect.right - containerRect.left + containerRef.current.scrollLeft;
+                    const startY = preRect.top + preRect.height / 2 - containerRect.top;
+                    const endX = currRect.left - containerRect.left + containerRef.current.scrollLeft;
+                    const endY = currRect.top + currRect.height / 2 - containerRect.top;
+
+                    const midX = endX - 10;
+                    const path = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+
+                    lines.push({ id: `${depId}-${task.id}`, path });
+                });
+            }
+        });
+        setDependencyLines(lines);
+    }, [tasks, projectStartDate, projectEndDate]);
+
     return (
-        <div className="gantt-container">
+        <div className="gantt-container" ref={containerRef}>
             <div className="gantt-grid" style={{ gridTemplateColumns: `150px repeat(${totalDays}, 1fr)`}}>
                 <div style={{gridColumn: '1 / 2'}}></div> {/* Spacer */}
                 <div className="gantt-header" style={{gridTemplateColumns: `repeat(${totalDays}, 1fr)`}}>
@@ -42,13 +129,20 @@ const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
                     <React.Fragment key={sprint.id}>
                         <div className="gantt-sprint-label">{sprint.name}</div>
                         {tasks.filter(t => t.sprintId === sprint.id).map(task => {
-                             const startOffset = diffInDays(projectStartDate, task.startDate) + 1;
-                             const duration = diffInDays(task.startDate, task.endDate) + 1;
+                            const startOffset = diffInDays(projectStartDate, task.startDate) + 1;
+                            const duration = diffInDays(task.startDate, task.endDate) + 1;
+                            const isBlocked = task.dependsOn?.some(depId => {
+                                const prereq = tasks.find(t => t.id === depId);
+                                return prereq && prereq.status !== 'done';
+                            });
+
                             return (
                                 <div className="gantt-task-row" key={task.id} style={{gridTemplateColumns: `repeat(${totalDays}, 1fr)`}}>
                                     <div 
-                                        className={`gantt-task-bar task-bar-${task.status}`}
+                                        ref={el => taskBarRefs.current.set(task.id, el)}
+                                        className={`gantt-task-bar task-bar-${task.status} ${isBlocked ? 'blocked' : ''}`}
                                         style={{ gridColumn: `${startOffset} / span ${duration}` }}
+                                        title={isBlocked ? 'This task is blocked by an incomplete dependency.' : task.name}
                                     >
                                         {task.name}
                                     </div>
@@ -58,67 +152,102 @@ const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
                     </React.Fragment>
                 ))}
             </div>
+             <svg className="gantt-dependency-svg">
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" className="gantt-dependency-arrow" />
+                    </marker>
+                </defs>
+                {dependencyLines.map(line => (
+                    <path key={line.id} d={line.path} className="gantt-dependency-line" markerEnd="url(#arrow)" />
+                ))}
+            </svg>
         </div>
     );
 };
 
-
-export const ProjectTrackingView = ({ tasks, sprints, milestones, projectStartDate, projectEndDate }) => {
-    const [view, setView] = useState('Timeline');
-
-    const kanbanColumns = {
+const KanbanView = ({ tasks }) => {
+    if (!tasks || tasks.length === 0) {
+        return <p>No tasks available for Kanban board.</p>;
+    }
+    const columns = {
         todo: 'To Do',
         inprogress: 'In Progress',
         review: 'In Review',
-        done: 'Done'
+        done: 'Done',
+    };
+    return (
+        <div className="kanban-board">
+            {Object.entries(columns).map(([statusKey, statusName]) => (
+                <div className="kanban-column" key={statusKey}>
+                    <h4>{statusName}</h4>
+                    {tasks.filter(t => t.status === statusKey).map(task => (
+                        <div className={`kanban-card ${task.status}`} key={task.id}>
+                            {task.name}
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const MilestonesView = ({ milestones }) => {
+    if (!milestones || milestones.length === 0) {
+        return <p>No milestones defined for this project.</p>;
+    }
+    return (
+        <table className="milestones-table">
+            <thead><tr><th>Milestone</th><th>Due Date</th><th>Health</th><th>Dependency</th></tr></thead>
+            <tbody>
+                {milestones.map(m => (
+                    <tr key={m.id}>
+                        <td>{m.name}</td>
+                        <td>{new Date(m.date).toLocaleDateString()}</td>
+                        <td><span className={`chip ${getHealthChipClass(m.health)}`}>{m.health}</span></td>
+                        <td>{m.dependency || 'N/A'}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+};
+
+export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask }) => {
+    const [view, setView] = useState(() => {
+        return localStorage.getItem(`hmap-tracking-view-${project.id}`) || 'Timeline';
+    });
+
+    const handleSetView = (newView) => {
+        setView(newView);
+        localStorage.setItem(`hmap-tracking-view-${project.id}`, newView);
+    };
+
+    const renderView = () => {
+        switch (view) {
+            case 'Timeline':
+                return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
+            case 'Task List':
+                return <TaskListView tasks={tasks} onUpdateTask={onUpdateTask} />;
+            case 'Kanban':
+                return <KanbanView tasks={tasks} />;
+            case 'Milestones':
+                return <MilestonesView milestones={milestones} />;
+            default:
+                return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
+        }
     };
 
     return (
         <div className="tool-card">
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-                <h2 className="subsection-title" style={{marginBottom: 0}}>Project Tracking</h2>
-                <p>Baseline v1 vs. Current v1 <span style={{color: 'var(--status-green)'}}>(+0% Drift)</span></p>
-            </div>
+            <h2 className="subsection-title">Project Tracking</h2>
             <div className="tracking-view-tabs">
-                <button className={`button ${view === 'Timeline' ? 'button-primary' : ''}`} onClick={() => setView('Timeline')}>Timeline (Gantt)</button>
-                <button className={`button ${view === 'Kanban' ? 'button-primary' : ''}`} onClick={() => setView('Kanban')}>Kanban</button>
-                <button className={`button ${view === 'Milestones' ? 'button-primary' : ''}`} onClick={() => setView('Milestones')}>Milestones</button>
+                <button onClick={() => handleSetView('Timeline')} className={view === 'Timeline' ? 'button button-primary' : 'button'}>Timeline</button>
+                <button onClick={() => handleSetView('Task List')} className={view === 'Task List' ? 'button button-primary' : 'button'}>Task List</button>
+                <button onClick={() => handleSetView('Kanban')} className={view === 'Kanban' ? 'button button-primary' : 'button'}>Kanban Board</button>
+                <button onClick={() => handleSetView('Milestones')} className={view === 'Milestones' ? 'button button-primary' : 'button'}>Milestones</button>
             </div>
-            {view === 'Timeline' && (
-                <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />
-            )}
-            {view === 'Kanban' && (
-                <div className="kanban-board">
-                    {Object.keys(kanbanColumns).map(statusKey => (
-                        <div className="kanban-column" key={statusKey}>
-                            <h4>{kanbanColumns[statusKey]}</h4>
-                            {tasks && tasks.filter(t => t.status === statusKey).map(task => (
-                                <div key={task.id} className={`kanban-card ${task.status}`}>{task.name}</div>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            )}
-            {view === 'Milestones' && (
-                <table className="milestones-table">
-                    <thead>
-                        <tr><th>Milestone</th><th>Date</th><th>Health</th><th>Dependency</th></tr>
-                    </thead>
-                    <tbody>
-                        {milestones && milestones.map(m => (
-                            <tr key={m.id}>
-                                <td>{m.name}</td>
-                                <td>{new Date(m.date).toLocaleDateString()}</td>
-                                <td><span className={`chip ${getHealthChipClass(m.health)}`}>{m.health}</span></td>
-                                <td>{tasks.find(t => t.id === m.dependency)?.name || 'N/A'}</td>
-                            </tr>
-                        ))}
-                         {(!milestones || milestones.length === 0) && (
-                            <tr><td colSpan={4} style={{textAlign: 'center'}}>No milestones defined for this project.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            )}
+            {renderView()}
         </div>
     );
 };

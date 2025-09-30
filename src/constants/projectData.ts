@@ -57,13 +57,13 @@ export const DEFAULT_SPRINTS = [
 ];
 
 export const DEFAULT_TASKS = [
-    { id: 'task1', sprintId: 'sprint1', name: 'Setup Project Environment', startDate: getDate(0), endDate: getDate(2), status: 'done' },
-    { id: 'task2', sprintId: 'sprint1', name: 'Design Database Schema', startDate: getDate(1), endDate: getDate(4), status: 'done' },
-    { id: 'task3', sprintId: 'sprint1', name: 'Develop User Auth API', startDate: getDate(5), endDate: getDate(10), status: 'inprogress' },
-    { id: 'task4', sprintId: 'sprint2', name: 'Implement Dashboard UI', startDate: getDate(15), endDate: getDate(22), status: 'todo' },
-    { id: 'task5', sprintId: 'sprint2', name: 'Implement Project Creation', startDate: getDate(23), endDate: getDate(28), status: 'todo' },
-    { id: 'task6', sprintId: 'sprint3', name: 'Conduct User Acceptance Testing', startDate: getDate(30), endDate: getDate(37), status: 'todo' },
-    { id: 'task7', sprintId: 'sprint3', name: 'Deploy to Staging', startDate: getDate(38), endDate: getDate(40), status: 'review' },
+    { id: 'task1', sprintId: 'sprint1', name: 'Setup Project Environment', startDate: getDate(0), endDate: getDate(2), status: 'done', dependsOn: [] },
+    { id: 'task2', sprintId: 'sprint1', name: 'Design Database Schema', startDate: getDate(1), endDate: getDate(4), status: 'done', dependsOn: ['task1'] },
+    { id: 'task3', sprintId: 'sprint1', name: 'Develop User Auth API', startDate: getDate(5), endDate: getDate(10), status: 'inprogress', dependsOn: ['task2'] },
+    { id: 'task4', sprintId: 'sprint2', name: 'Implement Dashboard UI', startDate: getDate(15), endDate: getDate(22), status: 'todo', dependsOn: ['task3'] },
+    { id: 'task5', sprintId: 'sprint2', name: 'Implement Project Creation', startDate: getDate(23), endDate: getDate(28), status: 'todo', dependsOn: ['task3'] },
+    { id: 'task6', sprintId: 'sprint3', name: 'Conduct User Acceptance Testing', startDate: getDate(30), endDate: getDate(37), status: 'todo', dependsOn: ['task4', 'task5'] },
+    { id: 'task7', sprintId: 'sprint3', name: 'Deploy to Staging', startDate: getDate(38), endDate: getDate(40), status: 'review', dependsOn: ['task6'] },
 ];
 
 export const DEFAULT_MILESTONES = [
@@ -79,6 +79,7 @@ export const PROMPTS = {
     phase4: (name, discipline) => `Create a detailed agenda and briefing document for a project kickoff review for "${name}" (${discipline}). The document should aim to align the team, confirm project objectives, and set clear expectations for deliverables and communication.`,
     phase5: (name, discipline, context) => `Based on the project "${name}" (${discipline}) and its preceding documentation:\n\n${context}\n\nDraft an Initial Plan and a Statement of Work (SOW). This should detail project boundaries, specific deliverables, assumptions, and constraints.`,
     phase6: (name, discipline) => `Develop a detailed project plan for "${name}" (${discipline}). Create a Work Breakdown Structure (WBS) that breaks the project into smaller, manageable components, and a Work Responsibility Structure (WRS) or RACI matrix to assign roles to tasks. Use bullet points or numbered lists for tasks.`,
+    phase6_tasks: (name, discipline, context) => `Act as an expert project manager for a project named "${name}" in the "${discipline}" field. Based on the following Statement of Work (SOW):\n\n${context}\n\nBreak down the project into a list of actionable tasks. For each task, provide a concise name and estimate its duration in working days. Respond with ONLY a JSON object containing a single key "tasks", which is an array of objects, where each object has a "name" (string) and a "duration" (number). Do not include any other text or explanation.`,
     phase7: (name, discipline, context) => `Based on the detailed plans for "${name}" (${discipline}):\n\n${context}\n\nDesign a project timeline. Identify key milestones, break down work into tasks or sprints, and schedule periodic progress reviews. Use bullet points or numbered lists for timeline items.`,
     phase8: (name, discipline) => `For the project "${name}" (${discipline}), create a set of requirements and task lists for the first two sprints. Include a checklist for a peer review process for each major task.`,
     phase9: (name, discipline) => `Based on the project "${name}" (${discipline}), write a summary document that confirms the project is ready for execution. State that the project tracking tool should now be initialized with all data from the planning phases (WBS, timeline, tasks). This marks the official start of the execution phase.`,

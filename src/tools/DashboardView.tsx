@@ -16,7 +16,7 @@ export const DashboardView = ({ project, phasesData }) => {
         <div className="tool-grid" style={{ gridTemplateColumns: '3fr 1fr', alignItems: 'start' }}>
             <div className="tool-grid">
                 <div className="tool-card">
-                    <h3 className="subsection-title">Key Performance Indicators</h3>
+                    <h3 className="subsection-title">Project Metrics</h3>
                     <div className="kpi-grid">
                         <div className="kpi-card"><h4>Budget</h4><p className="value green">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(project.budget || 0)}</p></div>
                         <div className="kpi-card"><h4>End Date</h4><p className="value" style={{ fontSize: '1.5rem' }}>{project.endDate}</p></div>
