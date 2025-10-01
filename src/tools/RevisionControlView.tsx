@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { logAction } from '../utils/logging';
+import { PROMPTS } from '../constants/projectData';
+import { ChangeDeploymentModal } from '../components/ChangeDeploymentModal';
 
 const parseImpact = (impactString) => {
     const daysMatch = impactString.match(/([+-]?\s*\d+)\s*d/);
@@ -19,14 +21,19 @@ const applyImpact = (baseline, impact) => {
     };
 };
 
-export const RevisionControlView = ({ project, saveProject }) => {
+export const RevisionControlView = ({ project, saveProject, ai }) => {
     const [cr, setCr] = useState(project.changeRequest || { title: '', reason: '', impactStr: '' });
     const [scenarios, setScenarios] = useState(project.scenarios || []);
     const [newScenario, setNewScenario] = useState({ name: '', impactStr: '' });
+    const [deploymentPlan, setDeploymentPlan] = useState('');
+    const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+    const [isDeploying, setIsDeploying] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         setCr(project.changeRequest || { title: '', reason: '', impactStr: '' });
         setScenarios(project.scenarios || []);
+        // Do not reset deploymentPlan on project change, it's specific to an action
     }, [project]);
 
     const handleCrChange = (newCrData) => {
@@ -50,6 +57,34 @@ export const RevisionControlView = ({ project, saveProject }) => {
         }
     };
     
+    const handleGeneratePlan = async () => {
+        if (!cr.title || !cr.reason) {
+            alert("Please provide a title and reason for the change request before generating a plan.");
+            return;
+        }
+        setIsGeneratingPlan(true);
+        setError('');
+        try {
+            const promptFn = PROMPTS.changeDeploymentPlan;
+            const prompt = promptFn(project.name, cr, project.tasks, project.documents);
+            logAction('Generate Change Plan', project.name, { promptLength: prompt.length });
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+
+            setDeploymentPlan(response.text);
+            logAction('Generate Change Plan Success', project.name, { plan: response.text });
+        } catch (err) {
+            console.error("API Error generating deployment plan:", err);
+            setError("Failed to generate the deployment plan. Please check the console and try again.");
+            logAction('Generate Change Plan Failure', project.name, { error: err.message });
+        } finally {
+            setIsGeneratingPlan(false);
+        }
+    };
+
     const baseline = useMemo(() => ({
         budget: project.budget,
         endDate: project.endDate,
@@ -124,6 +159,38 @@ export const RevisionControlView = ({ project, saveProject }) => {
                     </div>
                 </div>
             </div>
+            
+            <div style={{borderTop: '1px solid var(--border-color)', marginTop: '2rem', paddingTop: '2rem'}}>
+                <h3 className="subsection-title">Change Deployment</h3>
+                <div className="form-group">
+                    <label htmlFor="deploymentPlan">AI-Generated Deployment Plan</label>
+                    <textarea 
+                        id="deploymentPlan"
+                        rows={12}
+                        value={isGeneratingPlan ? 'Generating plan...' : deploymentPlan}
+                        onChange={(e) => setDeploymentPlan(e.target.value)}
+                        placeholder="Click 'Generate Deployment Plan' to create a step-by-step plan to implement this change."
+                        readOnly={isGeneratingPlan}
+                    />
+                </div>
+                {error && <p className="status-message error">{error}</p>}
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    <button className="button" onClick={handleGeneratePlan} disabled={isGeneratingPlan}>
+                        {isGeneratingPlan ? 'Generating...' : (deploymentPlan ? 'Regenerate Plan' : 'Generate Deployment Plan')}
+                    </button>
+                    <button className="button button-primary" onClick={() => setIsDeploying(true)} disabled={!deploymentPlan || isGeneratingPlan}>
+                        Deploy Change...
+                    </button>
+                </div>
+            </div>
+
+            <ChangeDeploymentModal
+                isOpen={isDeploying}
+                onClose={() => setIsDeploying(false)}
+                deploymentPlan={deploymentPlan}
+                project={project}
+                saveProject={saveProject}
+            />
         </div>
     );
 };

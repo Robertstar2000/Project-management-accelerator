@@ -8,6 +8,21 @@ import { ProjectTrackingView } from '../tools/ProjectTrackingView';
 import { RevisionControlView } from '../tools/RevisionControlView';
 import { logAction } from '../utils/logging';
 
+const parseMarkdownTable = (tableString) => {
+    if (!tableString) return [];
+    const rows = tableString.trim().split('\n');
+    const headers = rows[0].split('|').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    const data = rows.slice(2).map(row => {
+        const values = row.split('|').map(v => v.trim());
+        const obj = {};
+        headers.forEach((header, index) => {
+            if (header) obj[header] = values[index];
+        });
+        return obj;
+    });
+    return data;
+};
+
 export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
     const [phasesData, setPhasesData] = useState(project.phasesData || {});
     const [documents, setDocuments] = useState(project.documents || []);
@@ -23,6 +38,93 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('Dashboard');
     const configuredProjectIdRef = useRef(null);
+    const prevDocumentsRef = useRef(project.documents);
+
+    const parseAndPopulateProjectPlan = () => {
+        const planContent = project.phasesData?.['phase7']?.content;
+        if (!planContent) return;
+    
+        logAction('Parse Project Plan', project.name, { planContentLength: planContent.length });
+        
+        try {
+            const sections = planContent.split('## ').slice(1);
+            const tasksSection = sections.find(s => s.trim().toLowerCase().startsWith('tasks'));
+            const milestonesSection = sections.find(s => s.trim().toLowerCase().startsWith('milestones'));
+    
+            let parsedTasks = [];
+            let parsedMilestones = [];
+    
+            if (tasksSection) {
+                const tableContent = tasksSection.substring(tasksSection.indexOf('\n')).trim();
+                const rawTasks = parseMarkdownTable(tableContent);
+                const taskNameMap = new Map();
+                // First pass to create tasks and map names to IDs
+                parsedTasks = rawTasks.map((t, index) => {
+                    const taskId = `task-${Date.now()}-${index}`;
+                    const task = {
+                        id: taskId,
+                        name: t.task_name,
+                        startDate: t.start_date_yyyy_mm_dd,
+                        endDate: t.end_date_yyyy_mm_dd,
+                        sprintId: project.sprints.find(s => s.name === t.sprint)?.id || project.sprints[0]?.id,
+                        status: 'todo',
+                        dependsOn: t.dependencies ? t.dependencies.split(',').map(d => d.trim()) : [],
+                        actualTime: null,
+                        actualCost: null,
+                    };
+                    taskNameMap.set(task.name, taskId);
+                    return task;
+                });
+                // Second pass to resolve dependency names to IDs
+                parsedTasks.forEach(task => {
+                    task.dependsOn = task.dependsOn.map(depName => taskNameMap.get(depName)).filter(Boolean);
+                });
+            }
+    
+            if (milestonesSection) {
+                const tableContent = milestonesSection.substring(milestonesSection.indexOf('\n')).trim();
+                const rawMilestones = parseMarkdownTable(tableContent);
+                parsedMilestones = rawMilestones.map((m, index) => ({
+                    id: `milestone-${Date.now()}-${index}`,
+                    name: m.milestone_name,
+                    date: m.date_yyyy_mm_dd,
+                    health: 'On Track',
+                    dependency: null,
+                }));
+            }
+    
+            if (parsedTasks.length > 0) {
+                const lastTask = parsedTasks.reduce((latest, current) => new Date(latest.endDate) > new Date(current.endDate) ? latest : current);
+                const newProjectEndDate = lastTask.endDate;
+                
+                setTasks(parsedTasks);
+                setMilestones(parsedMilestones);
+                setProjectMetrics(prev => ({ ...prev, endDate: newProjectEndDate }));
+                saveProject({ ...project, tasks: parsedTasks, milestones: parsedMilestones, endDate: newProjectEndDate });
+                logAction('Populate Project Plan Success', project.name, { taskCount: parsedTasks.length, milestoneCount: parsedMilestones.length });
+            }
+        } catch(e) {
+            console.error("Failed to parse project plan:", e);
+            setError("Failed to parse the project plan documents. Please ensure they follow the specified Markdown format and regenerate if necessary.");
+            logAction('Populate Project Plan Failure', project.name, { error: e.message });
+        }
+    };
+
+    useEffect(() => {
+        const docWasJustApproved = (docTitle) => {
+            const oldDoc = prevDocumentsRef.current.find(d => d.title === docTitle);
+            const newDoc = project.documents.find(d => d.title === docTitle);
+            return oldDoc?.status !== 'Approved' && newDoc?.status === 'Approved';
+        };
+
+        const planDocsApproved = docWasJustApproved('Detailed Plans (WBS/WRS)') && docWasJustApproved('Project Timeline');
+        if (planDocsApproved) {
+            parseAndPopulateProjectPlan();
+        }
+
+        prevDocumentsRef.current = project.documents;
+    }, [project.documents]);
+
 
     useEffect(() => {
         // Update all local states from the project prop
@@ -127,88 +229,6 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             setLoadingPhase(null);
         }
     };
-    
-    const handleGenerateTasks = async (phaseId) => {
-        if (phaseId !== 'phase6') return;
-    
-        setLoadingPhase(phaseId);
-        setError('');
-        try {
-            const context = phasesData['phase5']?.content;
-            if (!context) {
-                setError('Statement of Work (Phase 5) must be completed before generating tasks.');
-                setLoadingPhase(null);
-                return;
-            }
-    
-            const prompt = PROMPTS.phase6_tasks(project.name, project.discipline, context);
-            logAction('Generate AI Tasks', phaseId, { promptLength: prompt.length });
-    
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            tasks: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        name: { type: Type.STRING },
-                                        duration: { type: Type.NUMBER, description: "Estimated duration in work days" }
-                                    },
-                                    required: ['name', 'duration']
-                                }
-                            }
-                        },
-                        required: ['tasks']
-                    }
-                }
-            });
-            
-            const result = JSON.parse(response.text);
-            const generatedTasks = result.tasks;
-    
-            let currentDate = new Date(project.startDate);
-            const newTasks = generatedTasks.map((taskInfo, index) => {
-                const startDate = new Date(currentDate);
-                const endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + (taskInfo.duration > 0 ? taskInfo.duration - 1 : 0));
-                
-                currentDate.setDate(endDate.getDate() + 1);
-    
-                const sprintIndex = Math.floor(index / (generatedTasks.length / project.sprints.length));
-                const sprintId = project.sprints[sprintIndex % project.sprints.length].id;
-    
-                return {
-                    id: `task-gen-${Date.now()}-${index}`,
-                    sprintId: sprintId,
-                    name: taskInfo.name,
-                    startDate: startDate.toISOString().split('T')[0],
-                    endDate: endDate.toISOString().split('T')[0],
-                    status: 'todo',
-                    dependsOn: []
-                };
-            });
-            
-            const lastTask = newTasks[newTasks.length - 1];
-            const newProjectEndDate = lastTask ? lastTask.endDate : project.endDate;
-    
-            setTasks(newTasks);
-            setProjectMetrics({ ...projectMetrics, endDate: newProjectEndDate });
-            saveProject({ ...project, tasks: newTasks, endDate: newProjectEndDate });
-    
-        } catch (err) {
-            console.error("API Error generating tasks:", err);
-            setError(`Failed to generate tasks. The AI's response may have been invalid. Please check the SOW and try again.`);
-            logAction('Error AI Tasks', phaseId, { error: err.message });
-        } finally {
-            setLoadingPhase(null);
-        }
-    };
 
     const handleTabChange = (tabName) => {
         logAction('Navigate Tab', tabName, { from: activeTab, to: tabName });
@@ -219,10 +239,10 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard': return <DashboardView project={{...project, ...projectMetrics}} phasesData={phasesData} />;
-            case 'Project Phases': return <ProjectPhasesView project={project} phasesData={phasesData} documents={documents} error={error} loadingPhase={loadingPhase} handleUpdatePhaseData={handleUpdatePhaseData} handleCompletePhase={handleCompletePhase} handleGenerateContent={handleGenerateContent} handleGenerateTasks={handleGenerateTasks} />;
+            case 'Project Phases': return <ProjectPhasesView project={project} phasesData={phasesData} documents={documents} error={error} loadingPhase={loadingPhase} handleUpdatePhaseData={handleUpdatePhaseData} handleCompletePhase={handleCompletePhase} handleGenerateContent={handleGenerateContent} />;
             case 'Documents': return <DocumentsView documents={documents} onUpdateDocument={handleUpdateDocument} />;
             case 'Project Tracking': return <ProjectTrackingView project={project} tasks={tasks} sprints={project.sprints} milestones={milestones} projectStartDate={project.startDate} projectEndDate={projectMetrics.endDate} onUpdateTask={handleUpdateTask} />;
-            case 'Revision Control': return <RevisionControlView project={project} saveProject={saveProject} />;
+            case 'Revision Control': return <RevisionControlView project={project} saveProject={saveProject} ai={ai} />;
             default: return null;
         }
     };

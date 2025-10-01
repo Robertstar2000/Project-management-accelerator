@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 
 const getHealthChipClass = (health) => {
     switch (health) {
@@ -16,58 +16,122 @@ const diffInDays = (date1, date2) => {
 };
 
 const TaskListView = ({ tasks, onUpdateTask }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const taskRefs = useRef({});
+
+    const filteredTasks = tasks.filter(t => 
+        t.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    useEffect(() => {
+        // Scroll to the first incomplete task
+        const firstIncompleteTask = tasks.find(t => t.status !== 'done');
+        if (firstIncompleteTask) {
+            const element = taskRefs.current[firstIncompleteTask.id];
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [tasks]);
+
+
     if (!tasks || tasks.length === 0) {
-        return <p>No tasks have been generated for this project yet.</p>;
+        return <p>Tasks will be populated here once the 'Detailed Plans (WBS/WRS)' and 'Project Timeline' documents are approved.</p>;
     }
 
-    const handleDependencyChange = (taskId, newDeps) => {
+    const handleFieldChange = (taskId, field, value) => {
         const taskToUpdate = tasks.find(t => t.id === taskId);
         if (taskToUpdate) {
-            onUpdateTask(taskId, { ...taskToUpdate, dependsOn: newDeps });
+            const isNumeric = ['actualTime', 'actualCost'].includes(field);
+            onUpdateTask(taskId, { ...taskToUpdate, [field]: isNumeric ? (value === '' ? null : Number(value)) : value });
         }
     };
 
     return (
-        <table className="task-list-table">
-            <thead>
-                <tr>
-                    <th>Task Name</th>
-                    <th>Dependencies</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {tasks.map(task => (
-                    <tr key={task.id}>
-                        <td>{task.name}</td>
-                        <td>
-                            <select
-                                multiple
-                                value={task.dependsOn || []}
-                                onChange={(e) => {
-                                    const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
-                                    handleDependencyChange(task.id, selectedIds);
-                                }}
-                                className="dependency-select"
-                                aria-label={`Dependencies for ${task.name}`}
-                            >
-                                {tasks.filter(t => t.id !== task.id).map(depTask => (
-                                    <option key={depTask.id} value={depTask.id}>
-                                        {depTask.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </td>
-                        <td>{task.status}</td>
+        <div>
+            <div className="form-group" style={{ maxWidth: '400px', marginBottom: '1rem' }}>
+                <input
+                    type="text"
+                    placeholder="Search for a task..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search tasks"
+                />
+            </div>
+            <table className="task-list-table">
+                <thead>
+                    <tr>
+                        <th>Task Name</th>
+                        <th>Dependencies</th>
+                        <th>Status</th>
+                        <th>Actual Time (days)</th>
+                        <th>Actual Cost ($)</th>
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {filteredTasks.map(task => (
+                        <tr key={task.id} ref={el => taskRefs.current[task.id] = el}>
+                            <td>{task.name}</td>
+                            <td>
+                                <select
+                                    multiple
+                                    value={task.dependsOn || []}
+                                    onChange={(e) => {
+                                        const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
+                                        handleFieldChange(task.id, 'dependsOn', selectedIds);
+                                    }}
+                                    className="dependency-select"
+                                    aria-label={`Dependencies for ${task.name}`}
+                                >
+                                    {tasks.filter(t => t.id !== task.id).map(depTask => (
+                                        <option key={depTask.id} value={depTask.id}>
+                                            {depTask.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </td>
+                            <td>
+                                <select 
+                                    value={task.status} 
+                                    onChange={(e) => handleFieldChange(task.id, 'status', e.target.value)}
+                                    aria-label={`Status for ${task.name}`}
+                                >
+                                    <option value="todo">To Do</option>
+                                    <option value="inprogress">In Progress</option>
+                                    <option value="review">In Review</option>
+                                    <option value="done">Done</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input 
+                                    type="number" 
+                                    value={task.actualTime ?? ''}
+                                    onChange={(e) => handleFieldChange(task.id, 'actualTime', e.target.value)}
+                                    placeholder="e.g. 5"
+                                    style={{maxWidth: '100px'}}
+                                    aria-label={`Actual time for ${task.name}`}
+                                />
+                            </td>
+                            <td>
+                                <input 
+                                    type="number" 
+                                    value={task.actualCost ?? ''}
+                                    onChange={(e) => handleFieldChange(task.id, 'actualCost', e.target.value)}
+                                    placeholder="e.g. 1500"
+                                    style={{maxWidth: '120px'}}
+                                    aria-label={`Actual cost for ${task.name}`}
+                                />
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
     );
 };
 
 const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
-    if (!tasks || !sprints || tasks.length === 0) return <p>No task data available for Gantt chart.</p>;
+    if (!tasks || !sprints || tasks.length === 0) return <p>Timeline will be populated here once tasks are generated and approved.</p>;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const taskBarRefs = useRef(new Map());
@@ -168,7 +232,7 @@ const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
 
 const KanbanView = ({ tasks }) => {
     if (!tasks || tasks.length === 0) {
-        return <p>No tasks available for Kanban board.</p>;
+        return <p>Kanban board will be populated here once tasks are generated and approved.</p>;
     }
     const columns = {
         todo: 'To Do',
@@ -194,7 +258,7 @@ const KanbanView = ({ tasks }) => {
 
 const MilestonesView = ({ milestones }) => {
     if (!milestones || milestones.length === 0) {
-        return <p>No milestones defined for this project.</p>;
+        return <p>Milestones will be populated here once the 'Project Timeline' document is approved.</p>;
     }
     return (
         <table className="milestones-table">

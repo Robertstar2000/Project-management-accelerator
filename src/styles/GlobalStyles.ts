@@ -262,7 +262,85 @@ export const GlobalStyles = `
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
-    margin-top: 2rem;
+    margin-top: 2.5rem;
+  }
+  
+  /* Project Manager Modal */
+  .project-manager-modal {
+    max-width: 600px;
+  }
+  
+  .modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+  }
+  .modal-tabs button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text);
+    font-size: 1rem;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .modal-tabs button:hover:not([disabled]) {
+    color: var(--primary-text);
+  }
+  .modal-tabs button.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+  }
+
+  .project-list-section, .create-project-section {
+    margin-bottom: 0;
+    border-top: none;
+    padding-top: 0;
+  }
+  
+  .create-project-section h3 {
+    margin-bottom: 1.5rem;
+    color: var(--accent-color);
+    font-size: 1.2rem;
+    text-align: left;
+  }
+  
+  .project-selection-list {
+    list-style: none;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 1rem;
+    margin-right: -1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .project-selection-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 4px;
+    background-color: var(--background-color);
+  }
+  
+  .project-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .project-info span {
+    font-size: 0.8rem;
+    color: var(--secondary-text);
+  }
+  
+  .project-actions {
+    display: flex;
+    gap: 0.75rem;
   }
 
   /* Project List Styles */
@@ -695,5 +773,55 @@ export const GlobalStyles = `
     border: 0;
     border-top: 1px solid var(--border-color);
     margin: 2rem 0;
+  }
+
+  /* Change Deployment Modal */
+  .change-deployment-modal {
+    max-width: 700px;
+  }
+
+  .deployment-progress {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    color: var(--secondary-text);
+  }
+
+  .deployment-step {
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  
+  .deployment-step h4 {
+    color: var(--accent-color);
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+  }
+  
+  .deployment-step-action {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-right: 0.75rem;
+  }
+  .deployment-step-action.add { color: var(--status-green); }
+  .deployment-step-action.delete { color: var(--error-color); }
+  .deployment-step-action.edit { color: var(--status-amber); }
+  
+  .deployment-step-target {
+    font-weight: bold;
+  }
+  
+  .deployment-step-details {
+    margin-top: 1rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border-color);
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+  }
+  
+  .deployment-step-details p {
+    margin: 0.5rem 0;
   }
 `;

@@ -9,7 +9,7 @@ import { NewProjectModal } from './components/NewProjectModal';
 import { DeleteProjectConfirmationModal } from './components/DeleteProjectConfirmationModal';
 import { HelpModal } from './components/HelpModal';
 import { GlobalStyles } from './styles/GlobalStyles';
-import { DEFAULT_DOCUMENTS, DEFAULT_TASKS, DEFAULT_SPRINTS, DEFAULT_MILESTONES } from './constants/projectData';
+import { DEFAULT_DOCUMENTS, DEFAULT_SPRINTS } from './constants/projectData';
 import { logAction } from './utils/logging';
 
 const App = () => {
@@ -18,6 +18,7 @@ const App = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [apiKeyStatus, setApiKeyStatus] = useState('pending');
 
@@ -95,21 +96,20 @@ const App = () => {
   };
 
   const handleCreateProject = (projectData) => {
-    const tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS));
-    const dates = tasks.flatMap(t => [new Date(t.startDate), new Date(t.endDate)]);
-    const startDate = new Date(Math.min(...dates));
-    const endDate = new Date(Math.max(...dates));
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + 44); // Default end date, will be updated by plan parsing
     
     const newProject = { 
         id: Date.now().toString(), 
         ...projectData,
         phasesData: {},
         documents: JSON.parse(JSON.stringify(DEFAULT_DOCUMENTS)), // Deep copy
-        tasks: tasks,
-        sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)),
-        milestones: JSON.parse(JSON.stringify(DEFAULT_MILESTONES)),
+        tasks: [],
+        sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)), // Keep sprints for initial UI structure
+        milestones: [],
         budget: 100000,
-        startDate: startDate.toISOString().split('T')[0],
+        startDate: today.toISOString().split('T')[0],
         endDate: endDate.toISOString().split('T')[0],
         changeRequest: { title: 'Add new login provider', reason: 'User request for SSO', impactStr: '+15d +5000c' },
         scenarios: [
@@ -160,33 +160,36 @@ const App = () => {
   };
 
   const handleNewProjectRequest = () => {
-    if (selectedProject) {
-        // FIX: Added missing third argument (details object) to logAction call.
-        logAction('Request New Project with Active Project', selectedProject.name, { projectId: selectedProject.id });
-        setIsDeleteConfirmationOpen(true);
-    } else {
-        // FIX: Added missing third argument (empty object) to logAction call.
-        logAction('Request New Project', 'No Active Project', {});
-        handleModalOpen(true);
-    }
+    logAction('Open Project Manager', 'User Action', {});
+    handleModalOpen(true);
   };
 
-  const handleConfirmProjectDeletion = () => {
-    if (!selectedProject) return;
+  const handleRequestDeleteProject = (project) => {
+    logAction('Request Project Deletion', project.name, { projectId: project.id });
+    setProjectToDelete(project);
+    setIsDeleteConfirmationOpen(true);
+    handleModalOpen(false); // Close the projects modal
+  };
 
-    logAction('Delete Project', selectedProject.name, { projectId: selectedProject.id });
+  const handleConfirmDeletion = () => {
+    if (!projectToDelete) return;
 
-    const updatedProjects = projects.filter(p => p.id !== selectedProject.id);
+    logAction('Confirm Delete Project', projectToDelete.name, { projectId: projectToDelete.id });
+
+    const updatedProjects = projects.filter(p => p.id !== projectToDelete.id);
     setProjects(updatedProjects);
     saveProjectsToStorage(updatedProjects);
     
-    cleanupProjectData(selectedProject.id);
-
-    setSelectedProject(null);
-    setIsDeleteConfirmationOpen(false);
+    cleanupProjectData(projectToDelete.id);
     
-    handleModalOpen(true);
+    if (selectedProject && selectedProject.id === projectToDelete.id) {
+        setSelectedProject(null);
+    }
+
+    setProjectToDelete(null);
+    setIsDeleteConfirmationOpen(false);
   };
+
 
   const handleToggleHelpModal = (isOpen: boolean) => {
       logAction('Toggle Help Modal', 'UI Action', { isOpen });
@@ -224,17 +227,20 @@ const App = () => {
             isOpen={isModalOpen} 
             onClose={() => handleModalOpen(false)} 
             onCreateProject={handleCreateProject}
+            projects={projects}
+            onSelectProject={handleSelectProject}
+            onRequestDelete={handleRequestDeleteProject}
         />
-        {selectedProject && (
+        {projectToDelete && (
           <DeleteProjectConfirmationModal
               isOpen={isDeleteConfirmationOpen}
               onClose={() => {
-                  // FIX: Added missing third argument (details object) to logAction call.
-                  logAction('Cancel Project Deletion', selectedProject.name, { projectId: selectedProject.id });
+                  logAction('Cancel Project Deletion', projectToDelete.name, { projectId: projectToDelete.id });
                   setIsDeleteConfirmationOpen(false);
+                  setProjectToDelete(null);
               }}
-              onConfirm={handleConfirmProjectDeletion}
-              projectName={selectedProject.name}
+              onConfirm={handleConfirmDeletion}
+              projectName={projectToDelete.name}
           />
         )}
         <button className="help-fab" onClick={() => handleToggleHelpModal(true)} aria-label="Open Help">?</button>

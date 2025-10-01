@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PhaseCard } from '../components/PhaseCard';
 import { PHASES, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
 
-export const ProjectPhasesView = ({ project, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent, handleGenerateTasks }) => {
+export const ProjectPhasesView = ({ project, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent }) => {
     const [openPhases, setOpenPhases] = useState(() => {
         try {
             const saved = localStorage.getItem(`hmap-open-phases-${project.id}`);
@@ -65,7 +65,6 @@ export const ProjectPhasesView = ({ project, phasesData, documents, error, loadi
                         isLocked={status === 'locked'}
                         lockReason={lockReason}
                         onGenerate={handleGenerateContent}
-                        onGenerateTasks={handleGenerateTasks}
                         onComplete={handleCompletePhase}
                         status={status}
                         isLoading={loadingPhase === phase.id}

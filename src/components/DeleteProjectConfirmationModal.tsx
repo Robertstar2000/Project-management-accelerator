@@ -38,7 +38,7 @@ export const DeleteProjectConfirmationModal: React.FC<DeleteProjectConfirmationM
             <div className="modal-content" onClick={(e) => e.stopPropagation()} ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
                 <h2 id="delete-modal-title" style={{ color: 'var(--error-color)' }}>Warning: Project Deletion</h2>
                 <p className="modal-warning-text">
-                    Starting a new project will permanently delete the current project, "<strong>{projectName}</strong>", and all of its associated data. This action cannot be undone.
+                    You are about to permanently delete the project "<strong>{projectName}</strong>". All of its associated data will be lost. This action cannot be undone.
                 </p>
                 <p style={{ color: 'var(--secondary-text)', marginBottom: '1.5rem' }}>
                     To proceed, please type the project name below to confirm.

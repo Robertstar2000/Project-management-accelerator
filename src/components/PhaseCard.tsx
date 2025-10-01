@@ -9,7 +9,6 @@ interface PhaseCardProps {
     isLocked: boolean;
     lockReason: string | null;
     onGenerate: (phaseId: string) => void;
-    onGenerateTasks?: (phaseId: string) => void;
     onComplete: (phaseId: string) => void;
     status: string;
     isLoading: boolean;
@@ -18,7 +17,7 @@ interface PhaseCardProps {
 }
 
 // FIX: Apply the props interface to the component.
-export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData, updatePhaseData, isLocked, lockReason, onGenerate, onGenerateTasks, onComplete, status, isLoading, isOpen, onToggleOpen }) => {
+export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData, updatePhaseData, isLocked, lockReason, onGenerate, onComplete, status, isLoading, isOpen, onToggleOpen }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedContent, setEditedContent] = useState(phaseData || '');
     
@@ -70,11 +69,6 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                         <button className="button" onClick={() => onGenerate(phase.id)} disabled={isLoading || status === 'completed'}>
                             {phaseData ? 'Regenerate' : 'Generate'} Content
                         </button>
-                        {phase.id === 'phase6' && onGenerateTasks && (
-                            <button className="button button-primary" onClick={() => onGenerateTasks(phase.id)} disabled={isLoading || status === 'completed'}>
-                                Break Down Tasks with AI
-                            </button>
-                        )}
                         {phaseData && !isEditing && <button className="button" onClick={() => setIsEditing(true)}>Edit</button>}
                         {isEditing && <button className="button button-primary" onClick={handleSave}>Save</button>}
                         {phaseData && <button className="button" onClick={() => onComplete(phase.id)} disabled={status === 'completed'}>Mark as Complete</button>}
