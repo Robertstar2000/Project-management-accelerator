@@ -336,11 +336,88 @@ export const GlobalStyles = `
   .project-info span {
     font-size: 0.8rem;
     color: var(--secondary-text);
+    text-transform: capitalize;
   }
   
   .project-actions {
     display: flex;
     gap: 0.75rem;
+  }
+
+  .mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    background-color: var(--background-color);
+    padding: 0.5rem;
+    border-radius: 6px;
+  }
+  .mode-switch button {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--secondary-text);
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: left;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  .mode-switch button span {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 400;
+    margin-top: 0.25rem;
+  }
+  .mode-switch button:hover {
+    border-color: var(--accent-color);
+    color: var(--primary-text);
+  }
+  .mode-switch button.active {
+    border-color: var(--accent-color);
+    background-color: rgba(0, 242, 255, 0.1);
+    color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+  }
+
+
+  .template-selection-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+  }
+  
+  .template-card {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .template-card:hover {
+    border-color: var(--accent-color);
+    background-color: var(--background-color);
+  }
+
+  .template-card.selected {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+    outline: 2px solid var(--accent-color);
+  }
+
+  .template-card h4 {
+    color: var(--primary-text);
+    margin-bottom: 0.5rem;
+  }
+
+  .template-card p {
+    font-size: 0.9rem;
+    color: var(--secondary-text);
   }
 
   /* Project List Styles */
@@ -514,6 +591,28 @@ export const GlobalStyles = `
   .kanban-card.inprogress { border-left-color: var(--task-inprogress-color); }
   .kanban-card.review { border-left-color: var(--task-review-color); }
   .kanban-card.done { border-left-color: var(--task-done-color); text-decoration: line-through; opacity: 0.7; }
+  .kanban-card p {
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+  }
+  .kanban-card small {
+    color: var(--secondary-text);
+    font-size: 0.8rem;
+  }
+  .kanban-card.overdue {
+    border-left-color: var(--status-red) !important;
+    box-shadow: 0 0 8px rgba(255, 77, 77, 0.3);
+  }
+  .kanban-card .subcontractor-label {
+    float: right;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--background-color);
+    background-color: var(--accent-color);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+  }
 
   /* Gantt Chart */
   .gantt-container { overflow-x: auto; padding: 1rem; background-color: var(--background-color); border-radius: 4px; position: relative; }
@@ -541,12 +640,42 @@ export const GlobalStyles = `
     background: repeating-linear-gradient(45deg, var(--status-red), var(--status-red) 10px, #ff6b6b 10px, #ff6b6b 20px);
     cursor: not-allowed;
   }
+  .gantt-task-bar.overdue {
+    box-shadow: 0 0 0 2px var(--status-red) inset;
+  }
+  .gantt-task-bar.subcontracted {
+    background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px);
+  }
   
   /* Task List & Milestones Table */
   .task-list-table, .milestones-table { width: 100%; border-collapse: collapse; }
   .task-list-table th, .task-list-table td,
   .milestones-table th, .milestones-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
   .task-list-table th, .milestones-table th { color: var(--secondary-text); }
+  
+  .task-list-table tr.task-row-overdue {
+    background-color: rgba(255, 77, 77, 0.1);
+  }
+  .task-list-table tr.task-row-overdue:hover {
+    background-color: rgba(255, 77, 77, 0.2);
+  }
+
+  .task-list-table input[type="date"] {
+    background-color: transparent;
+    border: none;
+    color: var(--primary-text);
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+    width: 120px;
+  }
+  
+  .task-date-error {
+    color: var(--error-color);
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+  
   .dependency-select {
     width: 100%;
     min-height: 80px;
@@ -629,8 +758,7 @@ export const GlobalStyles = `
   
   .phase-card.completed h3 { color: var(--success-color); }
 
-  .phase-content p.display-content {
-    white-space: pre-wrap;
+  .phase-content .display-content {
     background-color: var(--background-color);
     padding: 1rem;
     border-radius: 4px;
@@ -638,6 +766,52 @@ export const GlobalStyles = `
     color: var(--primary-text);
     line-height: 1.7;
     margin-bottom: 1rem;
+  }
+  
+  .display-content h1,
+  .display-content h2,
+  .display-content h3 {
+    color: var(--accent-color);
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .display-content h1 { font-size: 1.8rem; }
+  .display-content h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+  .display-content h3 { font-size: 1.2rem; }
+  
+  .display-content p {
+    margin-bottom: 1rem;
+  }
+
+  .display-content ul,
+  .display-content ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .display-content li {
+    margin-bottom: 0.5rem;
+  }
+  
+  .display-content a {
+    text-decoration: underline;
+  }
+  
+  .display-content code {
+    background-color: #2a2a3a;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  .display-content strong {
+    font-weight: bold;
+  }
+  
+  .display-content hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 2rem 0;
   }
 
   .phase-content textarea {
@@ -668,6 +842,31 @@ export const GlobalStyles = `
     align-items: center;
   }
   
+  .attachments-section {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .attachment-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  
+  .attachment-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--background-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  
   .status-message {
     text-align: center;
     padding: 1rem;
@@ -676,12 +875,41 @@ export const GlobalStyles = `
   }
   
   .status-message.loading {
-    background-color: rgba(0, 242, 255, 0.1);
+    background-color: var(--background-color);
+    border: 1px dashed var(--accent-color);
+    color: var(--accent-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    min-height: 274px; /* Match textarea height */
+    margin-bottom: 1rem;
+  }
+
+  .status-message.loading p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
   }
   
   .status-message.error {
     background-color: rgba(255, 77, 77, 0.1);
     color: var(--error-color);
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Help FAB */

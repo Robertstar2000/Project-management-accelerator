@@ -25,7 +25,7 @@ The application requires a Google Gemini API key to power its AI features.
 ### 2. Creating a New Project
 
 1.  Click the **"New Project"** or **"Start New Project"** button.
-2.  In the modal, provide a **Project Name** and select the relevant **Discipline**. The discipline helps the AI tailor its responses to your specific industry.
+2.  In the modal, select a project mode ('Full Scale' or 'Minimal Viable'), provide a **Project Name**, and select a **Discipline** from the available templates. The selected discipline is crucial as it instructs the AI to use professional, industry-standard terminology in all generated documents.
 3.  Click **"Create Project"**. You will be taken directly to the Project Dashboard.
 
 ### 3. The Project Dashboard
@@ -41,10 +41,10 @@ The dashboard is your central hub for managing a selected project.
 This is the core of the planning process. Work through each phase sequentially to build a robust project plan.
 
 1.  **Open a Phase**: Click on a phase header to expand it. Phases are locked until the previous phase is marked as complete.
-2.  **Generate Content**: Click the **"Generate Content"** button. The AI will use the project's name, discipline, and content from all previous phases to generate the required document for the current phase.
+2.  **Generate Content**: Click the **"Generate Content"** button. The AI will use the project's name, discipline, and content from all previous phases to generate the required document. All generated content uses professional, discipline-specific terminology and, where applicable, uses real-world names for skills and resources rather than inventing them.
 3.  **Edit & Save**: You can manually edit the AI-generated content in the text area and click **"Save"**.
 4.  **Mark as Complete**: Once you are satisfied with the content, click **"Mark as Complete"**. This will finalize the phase and unlock the next one.
-5.  **AI Task Breakdown (Phase 6)**: In the "Develop Detailed Plans (WBS/WRS)" phase, after generating the main content, a special button appears: **"Break Down Tasks with AI"**. Clicking this will read your Statement of Work (from Phase 5) and automatically generate a detailed task list, which will populate the Project Tracking view.
+5.  **AI Plan Generation (Phase 7)**: In the "Develop Detailed Plans & Timeline" phase, the AI reads your Statement of Work (SOW) from previous phases and automatically generates a complete project plan. This includes a Work Breakdown Structure (WBS), a detailed task list with dates and dependencies, and key project milestones. This output directly populates the **Project Tracking** view.
 
 ### 5. Project Tracking View
 
@@ -89,19 +89,9 @@ This tool is built on the **Hyper-Agile Management Process (HMAP)**, a methodolo
 
 The Project Management Accelerator uses AI as a powerful co-pilot to supercharge the HMAP workflow.
 
--   **Eliminates "Blank Page" Problem**: Instead of spending hours writing a Concept Proposal or SOW, the AI generates a comprehensive, context-aware draft in seconds (Phase 1, 5). This allows project managers to shift their focus from writing to strategy and refinement.
+-   **Eliminates "Blank Page" Problem**: Instead of spending hours writing a Concept Proposal or SOW, the AI generates a comprehensive, context-aware draft in seconds (Phase 1, 5). These drafts are written using professional, industry-standard terminology, allowing project managers to shift their focus from writing to strategy and refinement.
 -   **Ensures Consistency**: The AI uses the outputs of previous phases as context for the next, ensuring a consistent thread of logic flows through the entire plan, from high-level concept to detailed task lists.
--   **Automates Tedious Breakdown**: The most powerful feature is the AI-powered task generation (Phase 6). The AI parses the natural language of the SOW and converts it into a structured Work Breakdown Structure (WBS)—a list of tasks with duration estimates. This single step can save dozens of hours of manual planning.
+-   **Automates Tedious Breakdown**: A powerful feature is the AI-powered plan generation that occurs in **Phase 7 (Develop Detailed Plans & Timeline)**. The AI parses the natural language from the Statement of Work and other planning documents, then converts it into a structured project plan, including a Work Breakdown Structure (WBS), a detailed task list, and project milestones. This single step populates all the tools in the Project Tracking view and can save dozens of hours of manual planning.
 -   **Enables Rapid Re-planning**: If a major change occurs, you can quickly regenerate subsequent planning documents with the new context, allowing for agility that is impossible with traditional methods.
 
 By following the HMAP phases within this tool, you are guided through a best-practice planning process that is both incredibly fast and remarkably thorough, setting your project up for success from the very beginning.
-
----
-
-## Technical Description
-
--   **Stack**: React with TypeScript.
--   **AI Integration**: The app uses the `@google/genai` library to interface with the Google Gemini API. All AI prompts are centrally managed in `src/constants/projectData.ts`.
--   **State Management**: The primary state is managed within the `App.tsx` component. Project data is persisted across sessions using the browser's `localStorage`.
--   **Structured AI Output**: For task generation, the application sends the model a `responseSchema` (JSON schema) to ensure the AI's output is a well-formed JSON object that can be directly parsed and used by the application.
--   **Gantt Dependency Logic**: The dependency visualization in `src/tools/ProjectTrackingView.tsx` uses a `useLayoutEffect` hook. This ensures that after React has rendered the DOM, we can accurately measure the positions and dimensions of the task bar elements and then render the SVG connector lines in the correct locations.

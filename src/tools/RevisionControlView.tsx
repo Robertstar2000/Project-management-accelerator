@@ -66,7 +66,7 @@ export const RevisionControlView = ({ project, saveProject, ai }) => {
         setError('');
         try {
             const promptFn = PROMPTS.changeDeploymentPlan;
-            const prompt = promptFn(project.name, cr, project.tasks, project.documents);
+            const prompt = promptFn(project.name, project.discipline, cr, project.tasks, project.documents);
             logAction('Generate Change Plan', project.name, { promptLength: prompt.length });
             
             const response = await ai.models.generateContent({
@@ -106,6 +106,47 @@ export const RevisionControlView = ({ project, saveProject, ai }) => {
         const className = diff > 0 ? 'impact-positive' : diff < 0 ? 'impact-negative' : '';
         const sign = diff > 0 ? '+' : '';
         return <>{currencyFormat(value)} {diff !== 0 && <span className={className}>({sign}{currencyFormat(diff)})</span>}</>
+    };
+
+    const handleSaveChange = () => {
+        if (!cr.title) {
+            alert("Please provide a title for the change request before saving.");
+            return;
+        }
+
+        const changeDocContent = `
+# Change Request: ${cr.title}
+
+## Reason for Change
+${cr.reason}
+
+## Estimated Impact
+- **Time:** ${crImpact.days > 0 ? '+' : ''}${crImpact.days} days
+- **Cost:** ${crImpact.cost > 0 ? '+' : ''}${currencyFormat(crImpact.cost)}
+
+## What-If Scenarios Analysis
+
+| Metric   | Baseline              | CR Impact             | ${scenarios.map(s => s.name).join(' | ')} |
+|----------|-----------------------|-----------------------|${scenarios.map(() => '-----------------------').join('|')}
+| End Date | ${baseline.endDate}   | ${crResult.endDate}   | ${scenarioResults.map(s => s.result.endDate).join(' | ')} |
+| Budget   | ${currencyFormat(baseline.budget)} | ${currencyFormat(crResult.budget)} | ${scenarioResults.map(s => currencyFormat(s.result.budget)).join(' | ')} |
+`;
+
+        const newDoc = {
+            id: `doc-cr-${Date.now()}`,
+            title: `Change Request: ${cr.title}`,
+            version: 'v1.0',
+            status: 'Working',
+            owner: 'A. User',
+            phase: 8, // Associate with Sprint/Critical Design Planning
+            content: changeDocContent.trim(),
+        };
+
+        const updatedDocuments = [...project.documents, newDoc];
+        saveProject({ ...project, documents: updatedDocuments });
+
+        logAction('Save Change Request as Document', project.name, { document: newDoc });
+        alert(`Change Request document "${newDoc.title}" has been created and added to the Documents Center for approval.`);
     };
 
     return (
@@ -154,7 +195,7 @@ export const RevisionControlView = ({ project, saveProject, ai }) => {
                         </tbody>
                     </table>
                      <div style={{marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem'}}>
-                        <button className="button">Save Analysis</button>
+                        <button className="button" onClick={handleSaveChange}>Save Change</button>
                         <button className="button button-primary">Submit for Approval</button>
                     </div>
                 </div>

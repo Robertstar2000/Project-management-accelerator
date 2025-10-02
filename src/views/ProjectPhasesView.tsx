@@ -1,71 +1,87 @@
 import React, { useState } from 'react';
 import { PhaseCard } from '../components/PhaseCard';
-import { PHASES, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
+import { PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
 
-export const ProjectPhasesView = ({ project, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent }) => {
+export const ProjectPhasesView = ({ project, projectPhases, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent, handleAttachFile, handleRemoveAttachment }) => {
     const [openPhases, setOpenPhases] = useState(() => {
         try {
+            // Default to opening the first un-approved document
+            const firstTodoDoc = documents.find(d => d.status !== 'Approved');
+            const defaultOpen = firstTodoDoc ? [firstTodoDoc.id] : (projectPhases.length > 0 ? [projectPhases[0].id] : []);
             const saved = localStorage.getItem(`hmap-open-phases-${project.id}`);
-            // default to phase 1 open if nothing is saved or on error
-            return saved ? JSON.parse(saved) : [PHASES[0].id];
+            return saved ? JSON.parse(saved) : defaultOpen;
         } catch (e) {
             console.error("Failed to parse open phases from localStorage", e);
-            return [PHASES[0].id];
+            const firstTodoDoc = documents.find(d => d.status !== 'Approved');
+            return firstTodoDoc ? [firstTodoDoc.id] : (projectPhases.length > 0 ? [projectPhases[0].id] : []);
         }
     });
 
-    const togglePhaseOpen = (phaseId) => {
-        const newOpenPhases = openPhases.includes(phaseId)
-            ? openPhases.filter(id => id !== phaseId)
-            : [...openPhases, phaseId];
+    const togglePhaseOpen = (docId) => {
+        const newOpenPhases = openPhases.includes(docId)
+            ? openPhases.filter(id => id !== docId)
+            : [...openPhases, docId];
         setOpenPhases(newOpenPhases);
         localStorage.setItem(`hmap-open-phases-${project.id}`, JSON.stringify(newOpenPhases));
     };
 
-    const getPhaseStatus = (phaseId, index) => {
-        const data = phasesData[phaseId];
-        if (data?.status === 'completed') return { status: 'completed', lockReason: null };
+    const getLockStatus = (docId) => {
+        const doc = documents.find(d => d.id === docId);
+        if (!doc) return { isLocked: true, lockReason: 'Document not found.' };
 
-        const isFirstPhase = index === 0;
-        const prevPhaseId = isFirstPhase ? null : PHASES[index - 1].id;
-        const isPrevPhaseComplete = isFirstPhase || phasesData[prevPhaseId]?.status === 'completed';
-
-        if (!isPrevPhaseComplete) {
-            return { status: 'locked', lockReason: `Requires previous phase to be complete.` };
-        }
-        
-        const requiredDocs = PHASE_DOCUMENT_REQUIREMENTS[phaseId];
-        if (requiredDocs && documents) {
-            const unapprovedDocs = requiredDocs.filter(docTitle => {
-                const doc = documents.find(d => d.title === docTitle);
-                return !doc || doc.status !== 'Approved';
-            });
-
-            if (unapprovedDocs.length > 0) {
-                const reason = `Requires document${unapprovedDocs.length > 1 ? 's' : ''} to be approved: ${unapprovedDocs.map(t => `'${t}'`).join(', ')}.`;
-                return { status: 'locked', lockReason: reason };
+        // A document is locked if any document from the immediately preceding phase is not 'Approved'.
+        const prevPhaseNumber = doc.phase - 1;
+        if (prevPhaseNumber > 0) {
+            const prevPhaseDocs = documents.filter(d => d.phase === prevPhaseNumber);
+            const isPrevPhaseComplete = prevPhaseDocs.length > 0 && prevPhaseDocs.every(d => d.status === 'Approved');
+            if (!isPrevPhaseComplete) {
+                return { isLocked: true, lockReason: `Requires all documents in Phase ${prevPhaseNumber} to be approved.` };
             }
         }
 
-        return { status: 'todo', lockReason: null };
+        // Also check for specific document title requirements for this phase.
+        const docPhaseId = `phase${doc.phase}`;
+        const requiredDocTitles = PHASE_DOCUMENT_REQUIREMENTS[docPhaseId];
+        if (requiredDocTitles) {
+            const unapprovedDocs = requiredDocTitles.filter(docTitle => {
+                // Don't check the document against itself
+                if (docTitle === doc.title) return false; 
+                const prereqDoc = documents.find(d => d.title === docTitle);
+                return !prereqDoc || prereqDoc.status !== 'Approved';
+            });
+
+            if (unapprovedDocs.length > 0) {
+                const reason = `Requires approval for: ${unapprovedDocs.join(', ')}.`;
+                return { isLocked: true, lockReason: reason };
+            }
+        }
+
+        return { isLocked: false, lockReason: null };
     };
 
     return (
         <div>
             {error && <div className="status-message error">{error}</div>}
-            {PHASES.map((phase, index) => {
-                const { status, lockReason } = getPhaseStatus(phase.id, index);
+            {projectPhases.map((phase, index) => {
+                const doc = documents.find(d => d.id === phase.id);
+                const { isLocked, lockReason } = getLockStatus(phase.id);
+                // Status for the chip: 'locked', 'completed' (if approved), or 'todo' (if working/rejected/etc.)
+                const status = isLocked ? 'locked' : (doc?.status === 'Approved' ? 'completed' : 'todo');
+
                 return (
                     <PhaseCard
                         key={phase.id}
                         phase={phase}
                         project={project}
                         phaseData={phasesData[phase.id]?.content}
+                        attachments={phasesData[phase.id]?.attachments || []}
                         updatePhaseData={handleUpdatePhaseData}
-                        isLocked={status === 'locked'}
+                        isLocked={isLocked}
                         lockReason={lockReason}
                         onGenerate={handleGenerateContent}
                         onComplete={handleCompletePhase}
+                        onAttachFile={handleAttachFile}
+                        onRemoveAttachment={handleRemoveAttachment}
                         status={status}
                         isLoading={loadingPhase === phase.id}
                         isOpen={openPhases.includes(phase.id)}

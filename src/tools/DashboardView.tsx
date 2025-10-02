@@ -1,12 +1,22 @@
 import React from 'react';
-import { PHASES } from '../constants/projectData';
 
-export const DashboardView = ({ project, phasesData }) => {
+export const DashboardView = ({ project, phasesData, isPlanningComplete, projectPhases }) => {
+    if (!isPlanningComplete) {
+        return (
+            <div className="tool-card" style={{ textAlign: 'center', padding: '4rem' }}>
+                <h3 className="subsection-title">Dashboard Locked</h3>
+                <p style={{ color: 'var(--secondary-text)', maxWidth: '600px', margin: '0 auto' }}>
+                    Dashboard metrics will become available once all planning phases are complete and all required documents have been moved to "Approved" status in the Documents tab.
+                </p>
+            </div>
+        );
+    }
+
     // FIX: Explicitly type 'p' as 'any' to resolve 'unknown' type from Object.values(), allowing property access.
     const completedPhases = Object.values(phasesData).filter((p: any) => p.status === 'completed').length;
-    const inProgressPhase = PHASES.find((p, i) => {
+    const inProgressPhase = projectPhases.find((p, i) => {
         const isComplete = phasesData[p.id]?.status === 'completed';
-        const isPrevComplete = i === 0 || phasesData[PHASES[i - 1].id]?.status === 'completed';
+        const isPrevComplete = i === 0 || phasesData[projectPhases[i - 1].id]?.status === 'completed';
         return !isComplete && isPrevComplete;
     });
 
@@ -28,7 +38,7 @@ export const DashboardView = ({ project, phasesData }) => {
                 <div className="tool-card">
                     <h3 className="subsection-title">Phase Tracker</h3>
                     <div className="phase-tracker">
-                        {PHASES.map((phase, i) => (
+                        {projectPhases.map((phase, i) => (
                             <div 
                                 key={phase.id} 
                                 className={`phase-tracker-segment ${phasesData[phase.id]?.status === 'completed' ? 'completed' : phase.id === inProgressPhase?.id ? 'inprogress' : ''}`}

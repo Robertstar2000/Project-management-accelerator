@@ -9,7 +9,7 @@ import { NewProjectModal } from './components/NewProjectModal';
 import { DeleteProjectConfirmationModal } from './components/DeleteProjectConfirmationModal';
 import { HelpModal } from './components/HelpModal';
 import { GlobalStyles } from './styles/GlobalStyles';
-import { DEFAULT_DOCUMENTS, DEFAULT_SPRINTS } from './constants/projectData';
+import { DEFAULT_SPRINTS, TEMPLATES, DEFAULT_DOCUMENTS } from './constants/projectData';
 import { logAction } from './utils/logging';
 
 const App = () => {
@@ -95,16 +95,19 @@ const App = () => {
     }
   };
 
-  const handleCreateProject = (projectData) => {
+  const handleCreateProject = ({ name, template, mode, scope }) => {
     const today = new Date();
     const endDate = new Date(today);
     endDate.setDate(today.getDate() + 44); // Default end date, will be updated by plan parsing
     
     const newProject = { 
         id: Date.now().toString(), 
-        ...projectData,
+        name,
+        mode, // 'fullscale' or 'minimal'
+        scope, // 'internal' or 'subcontracted'
+        discipline: template.discipline,
         phasesData: {},
-        documents: JSON.parse(JSON.stringify(DEFAULT_DOCUMENTS)), // Deep copy
+        documents: JSON.parse(JSON.stringify(template.documents || DEFAULT_DOCUMENTS)), // Deep copy from template
         tasks: [],
         sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)), // Keep sprints for initial UI structure
         milestones: [],
@@ -203,6 +206,7 @@ const App = () => {
             onNewProject={handleNewProjectRequest} 
             onHomeClick={() => handleSelectProject(null)}
             disabled={!ai}
+            isLandingPage={!selectedProject}
         />
         <main>
             {selectedProject ? (
@@ -230,6 +234,7 @@ const App = () => {
             projects={projects}
             onSelectProject={handleSelectProject}
             onRequestDelete={handleRequestDeleteProject}
+            ai={ai}
         />
         {projectToDelete && (
           <DeleteProjectConfirmationModal

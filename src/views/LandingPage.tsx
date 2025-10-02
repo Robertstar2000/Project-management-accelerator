@@ -1,7 +1,7 @@
 import React from 'react';
 import { Hero } from '../components/Hero';
 import { ApiKeyManager } from '../components/ApiKeyManager';
-import { ProjectList } from '../components/ProjectList';
+import { ProjectList } from '../hmap/ProjectList';
 
 export const LandingPage = ({ projects, onSelectProject, onNewProject, apiKeyStatus, onSetUserKey, disabled }) => {
     return (

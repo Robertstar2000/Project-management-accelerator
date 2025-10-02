@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 
 const getHealthChipClass = (health) => {
     switch (health) {
@@ -15,13 +15,23 @@ const diffInDays = (date1, date2) => {
     return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 };
 
+const statusDescriptions = {
+    todo: 'To Do: Task has not been started.',
+    inprogress: 'In Progress: Task is actively being worked on.',
+    review: 'In Review: Work is complete and awaiting approval.',
+    done: 'Done: Task is fully complete and approved.',
+};
+
 const TaskListView = ({ tasks, onUpdateTask }) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [dateErrors, setDateErrors] = useState({});
     const taskRefs = useRef({});
 
-    const filteredTasks = tasks.filter(t => 
-        t.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(t => 
+            t.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [tasks, searchQuery]);
     
     useEffect(() => {
         // Scroll to the first incomplete task
@@ -41,10 +51,62 @@ const TaskListView = ({ tasks, onUpdateTask }) => {
 
     const handleFieldChange = (taskId, field, value) => {
         const taskToUpdate = tasks.find(t => t.id === taskId);
-        if (taskToUpdate) {
-            const isNumeric = ['actualTime', 'actualCost'].includes(field);
-            onUpdateTask(taskId, { ...taskToUpdate, [field]: isNumeric ? (value === '' ? null : Number(value)) : value });
+        if (!taskToUpdate) return;
+
+        // Create a temporary object with the potential new value for validation
+        const tempUpdatedTask = { ...taskToUpdate, [field]: value };
+        let validationError = null;
+
+        // Date validation logic
+        if (field === 'endDate' && tempUpdatedTask.startDate && value) {
+            if (new Date(value) < new Date(tempUpdatedTask.startDate)) {
+                validationError = 'End date cannot be before start date.';
+            }
         }
+        if (field === 'startDate' && tempUpdatedTask.endDate && value) {
+            if (new Date(value) > new Date(tempUpdatedTask.endDate)) {
+                validationError = 'Start date cannot be after end date.';
+            }
+        }
+        if (field === 'actualEndDate' && tempUpdatedTask.startDate && value) {
+            if (new Date(value) < new Date(tempUpdatedTask.startDate)) {
+                validationError = 'Actual end date cannot be before start date.';
+            }
+        }
+
+        if (validationError) {
+            setDateErrors(prev => ({
+                ...prev,
+                [taskId]: { ...prev[taskId], [field]: validationError }
+            }));
+            // Do not proceed with update
+            return;
+        }
+        
+        // Clear any previous error for this field if validation passes
+        setDateErrors(prev => {
+            const newErrorsForTask = { ...prev[taskId] };
+            delete newErrorsForTask[field];
+            return { ...prev, [taskId]: newErrorsForTask };
+        });
+
+        // If validation passes, proceed with the update
+        let updatedTask = { ...taskToUpdate, [field]: value };
+    
+        // Auto-set actual end date when task is marked as done
+        if (field === 'status' && value === 'done' && !updatedTask.actualEndDate) {
+            updatedTask.actualEndDate = new Date().toISOString().split('T')[0];
+        }
+    
+        // Handle empty values for numeric/date fields
+        const isNumeric = ['actualTime', 'actualCost'].includes(field);
+        if (isNumeric) {
+            updatedTask[field] = value === '' ? null : Number(value);
+        } else if (['actualEndDate', 'startDate', 'endDate'].includes(field)) {
+            updatedTask[field] = value === '' ? null : value;
+        }
+    
+        onUpdateTask(taskId, updatedTask);
     };
 
     return (
@@ -62,68 +124,112 @@ const TaskListView = ({ tasks, onUpdateTask }) => {
                 <thead>
                     <tr>
                         <th>Task Name</th>
+                        <th>Subcontractor Task</th>
                         <th>Dependencies</th>
                         <th>Status</th>
+                        <th>Planned Start Date</th>
+                        <th>Planned Due Date</th>
+                        <th>Actual Due Date</th>
                         <th>Actual Time (days)</th>
                         <th>Actual Cost ($)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredTasks.map(task => (
-                        <tr key={task.id} ref={el => taskRefs.current[task.id] = el}>
-                            <td>{task.name}</td>
-                            <td>
-                                <select
-                                    multiple
-                                    value={task.dependsOn || []}
-                                    onChange={(e) => {
-                                        const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
-                                        handleFieldChange(task.id, 'dependsOn', selectedIds);
-                                    }}
-                                    className="dependency-select"
-                                    aria-label={`Dependencies for ${task.name}`}
-                                >
-                                    {tasks.filter(t => t.id !== task.id).map(depTask => (
-                                        <option key={depTask.id} value={depTask.id}>
-                                            {depTask.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </td>
-                            <td>
-                                <select 
-                                    value={task.status} 
-                                    onChange={(e) => handleFieldChange(task.id, 'status', e.target.value)}
-                                    aria-label={`Status for ${task.name}`}
-                                >
-                                    <option value="todo">To Do</option>
-                                    <option value="inprogress">In Progress</option>
-                                    <option value="review">In Review</option>
-                                    <option value="done">Done</option>
-                                </select>
-                            </td>
-                            <td>
-                                <input 
-                                    type="number" 
-                                    value={task.actualTime ?? ''}
-                                    onChange={(e) => handleFieldChange(task.id, 'actualTime', e.target.value)}
-                                    placeholder="e.g. 5"
-                                    style={{maxWidth: '100px'}}
-                                    aria-label={`Actual time for ${task.name}`}
-                                />
-                            </td>
-                            <td>
-                                <input 
-                                    type="number" 
-                                    value={task.actualCost ?? ''}
-                                    onChange={(e) => handleFieldChange(task.id, 'actualCost', e.target.value)}
-                                    placeholder="e.g. 1500"
-                                    style={{maxWidth: '120px'}}
-                                    aria-label={`Actual cost for ${task.name}`}
-                                />
-                            </td>
-                        </tr>
-                    ))}
+                    {filteredTasks.map(task => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0); // Normalize to start of day
+                        const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
+
+                        return (
+                            <tr 
+                                key={task.id} 
+                                // FIX: The ref callback must not return a value. Encapsulating the assignment in curly braces ensures it returns undefined.
+                                ref={el => { taskRefs.current[task.id] = el; }}
+                                className={isOverdue ? 'task-row-overdue' : ''}
+                                title={isOverdue ? `Overdue: Planned due date was ${task.endDate}` : ''}
+                            >
+                                <td>{task.name}</td>
+                                <td>{task.isSubcontracted ? 'Yes' : 'No'}</td>
+                                <td>
+                                    <select
+                                        multiple
+                                        value={task.dependsOn || []}
+                                        onChange={(e) => {
+                                            const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
+                                            handleFieldChange(task.id, 'dependsOn', selectedIds);
+                                        }}
+                                        className="dependency-select"
+                                        aria-label={`Dependencies for ${task.name}`}
+                                    >
+                                        {tasks.filter(t => t.id !== task.id).map(depTask => (
+                                            <option key={depTask.id} value={depTask.id}>
+                                                {depTask.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select 
+                                        value={task.status} 
+                                        onChange={(e) => handleFieldChange(task.id, 'status', e.target.value)}
+                                        aria-label={`Status for ${task.name}`}
+                                    >
+                                        <option value="todo">To Do</option>
+                                        <option value="inprogress">In Progress</option>
+                                        <option value="review">In Review</option>
+                                        <option value="done">Done</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input
+                                        type="date"
+                                        value={task.startDate ?? ''}
+                                        onChange={(e) => handleFieldChange(task.id, 'startDate', e.target.value)}
+                                        aria-label={`Planned start date for ${task.name}`}
+                                    />
+                                    {dateErrors[task.id]?.startDate && <div className="task-date-error">{dateErrors[task.id].startDate}</div>}
+                                </td>
+                                <td>
+                                    <input
+                                        type="date"
+                                        value={task.endDate ?? ''}
+                                        onChange={(e) => handleFieldChange(task.id, 'endDate', e.target.value)}
+                                        aria-label={`Planned due date for ${task.name}`}
+                                    />
+                                    {dateErrors[task.id]?.endDate && <div className="task-date-error">{dateErrors[task.id].endDate}</div>}
+                                </td>
+                                <td>
+                                    <input
+                                        type="date"
+                                        value={task.actualEndDate ?? ''}
+                                        onChange={(e) => handleFieldChange(task.id, 'actualEndDate', e.target.value)}
+                                        aria-label={`Actual due date for ${task.name}`}
+                                    />
+                                     {dateErrors[task.id]?.actualEndDate && <div className="task-date-error">{dateErrors[task.id].actualEndDate}</div>}
+                                </td>
+                                <td>
+                                    <input 
+                                        type="number" 
+                                        value={task.actualTime ?? ''}
+                                        onChange={(e) => handleFieldChange(task.id, 'actualTime', e.target.value)}
+                                        placeholder="e.g. 5"
+                                        style={{maxWidth: '100px'}}
+                                        aria-label={`Actual time for ${task.name}`}
+                                    />
+                                </td>
+                                <td>
+                                    <input 
+                                        type="number" 
+                                        value={task.actualCost ?? ''}
+                                        onChange={(e) => handleFieldChange(task.id, 'actualCost', e.target.value)}
+                                        placeholder="e.g. 1500"
+                                        style={{maxWidth: '120px'}}
+                                        aria-label={`Actual cost for ${task.name}`}
+                                    />
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
@@ -200,13 +306,25 @@ const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
                                 return prereq && prereq.status !== 'done';
                             });
 
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
+                            const statusDesc = statusDescriptions[task.status] || 'Unknown Status';
+                            let title = isBlocked 
+                                ? 'This task is blocked by an incomplete dependency.' 
+                                : `${task.name}\nStatus: ${statusDesc}${isOverdue ? '\nOVERDUE' : ''}`;
+                            if (task.isSubcontracted) {
+                                title += '\n(Subcontractor Task)';
+                            }
+
                             return (
                                 <div className="gantt-task-row" key={task.id} style={{gridTemplateColumns: `repeat(${totalDays}, 1fr)`}}>
                                     <div 
-                                        ref={el => taskBarRefs.current.set(task.id, el)}
-                                        className={`gantt-task-bar task-bar-${task.status} ${isBlocked ? 'blocked' : ''}`}
+                                        // FIX: The ref callback must not return a value. Using a more robust callback that adds/removes the element from the map on mount/unmount.
+                                        ref={el => { el ? taskBarRefs.current.set(task.id, el) : taskBarRefs.current.delete(task.id); }}
+                                        className={`gantt-task-bar task-bar-${task.status} ${isBlocked ? 'blocked' : ''} ${isOverdue ? 'overdue' : ''} ${task.isSubcontracted ? 'subcontracted' : ''}`}
                                         style={{ gridColumn: `${startOffset} / span ${duration}` }}
-                                        title={isBlocked ? 'This task is blocked by an incomplete dependency.' : task.name}
+                                        title={title}
                                     >
                                         {task.name}
                                     </div>
@@ -245,11 +363,20 @@ const KanbanView = ({ tasks }) => {
             {Object.entries(columns).map(([statusKey, statusName]) => (
                 <div className="kanban-column" key={statusKey}>
                     <h4>{statusName}</h4>
-                    {tasks.filter(t => t.status === statusKey).map(task => (
-                        <div className={`kanban-card ${task.status}`} key={task.id}>
-                            {task.name}
-                        </div>
-                    ))}
+                    {tasks.filter(t => t.status === statusKey).map(task => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0); // Normalize to start of day
+                        const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
+                        const cardTitle = `${statusDescriptions[task.status]}${isOverdue ? '\nOVERDUE' : ''}${task.isSubcontracted ? '\n(Subcontractor Task)' : ''}`;
+
+                        return (
+                            <div className={`kanban-card ${task.status} ${isOverdue ? 'overdue' : ''}`} key={task.id} title={cardTitle}>
+                                {task.isSubcontracted && <span className="subcontractor-label">SUB</span>}
+                                <p>{task.name}</p>
+                                {task.endDate && <small>Due: {new Date(task.endDate).toLocaleDateString()}</small>}
+                            </div>
+                        );
+                    })}
                 </div>
             ))}
         </div>
@@ -279,12 +406,12 @@ const MilestonesView = ({ milestones }) => {
 
 export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask }) => {
     const [view, setView] = useState(() => {
-        return localStorage.getItem(`hmap-tracking-view-${project.id}`) || 'Timeline';
+        return localStorage.getItem(`hantt-tracking-view-${project.id}`) || 'Timeline';
     });
 
     const handleSetView = (newView) => {
         setView(newView);
-        localStorage.setItem(`hmap-tracking-view-${project.id}`, newView);
+        localStorage.setItem(`hantt-tracking-view-${project.id}`, newView);
     };
 
     const renderView = () => {
