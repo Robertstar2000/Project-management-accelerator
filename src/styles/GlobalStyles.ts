@@ -441,6 +441,7 @@ export const GlobalStyles = `
     padding: 1.5rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
+    height: 100%;
   }
 
   .project-card:hover {
@@ -469,6 +470,24 @@ export const GlobalStyles = `
     font-size: 0.9rem;
   }
   
+  .project-card-container {
+    position: relative;
+  }
+
+  .delete-project-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 2;
+  }
+
+  .project-card-container:hover .delete-project-button,
+  .project-card-container:focus-within .delete-project-button {
+    opacity: 1;
+  }
+
   .no-projects {
     text-align: center;
     padding: 2rem;

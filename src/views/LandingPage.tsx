@@ -3,7 +3,7 @@ import { Hero } from '../components/Hero';
 import { ApiKeyManager } from '../components/ApiKeyManager';
 import { ProjectList } from '../hmap/ProjectList';
 
-export const LandingPage = ({ projects, onSelectProject, onNewProject, apiKeyStatus, onSetUserKey, disabled }) => {
+export const LandingPage = ({ projects, onSelectProject, onNewProject, apiKeyStatus, onSetUserKey, disabled, onRequestDelete }) => {
     return (
         <>
             {projects.length === 0 ? (
@@ -16,6 +16,7 @@ export const LandingPage = ({ projects, onSelectProject, onNewProject, apiKeySta
                     onSelectProject={onSelectProject}
                     onNewProject={onNewProject}
                     disabled={disabled}
+                    onRequestDelete={onRequestDelete}
                 />
             ) : null}
         </>

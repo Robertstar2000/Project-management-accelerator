@@ -7,6 +7,7 @@ import { DocumentsView } from '../tools/DocumentsView';
 import { ProjectTrackingView } from '../tools/ProjectTrackingView';
 import { RevisionControlView } from '../tools/RevisionControlView';
 import { logAction } from '../utils/logging';
+import { NotificationModal } from '../components/NotificationModal';
 
 const parseMarkdownTable = (tableString) => {
     if (!tableString) return [];
@@ -37,6 +38,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
     const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('Dashboard');
+    const [notificationQueue, setNotificationQueue] = useState([]);
     const configuredProjectIdRef = useRef(null);
     const prevDocumentsRef = useRef(project.documents);
 
@@ -109,6 +111,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
                     const task = {
                         id: taskId,
                         name: t.task_name,
+                        role: t.role || null,
                         startDate: t.start_date_yyyy_mm_dd,
                         endDate: t.end_date_yyyy_mm_dd,
                         sprintId: project.sprints.find(s => s.name === t.sprint)?.id || project.sprints[0]?.id,
@@ -270,9 +273,50 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         const newTasks = tasks.map(task =>
             task.id === taskId ? { ...task, ...updatedData } : task
         );
+    
+        const taskToUpdate = tasks.find(t => t.id === taskId);
+        if (taskToUpdate && updatedData.status === 'done' && taskToUpdate.status !== 'done') {
+            const completedTaskId = taskToUpdate.id;
+            
+            const notificationsToSend = [];
+            const dependentTasks = newTasks.filter(t => t.dependsOn?.includes(completedTaskId));
+            
+            dependentTasks.forEach(dependentTask => {
+                const allDependenciesMet = dependentTask.dependsOn.every(depId => {
+                    const depTask = newTasks.find(t => t.id === depId);
+                    return depTask && depTask.status === 'done';
+                });
+    
+                if (allDependenciesMet) {
+                    const role = dependentTask.role;
+                    if (role) {
+                        const assignedPerson = project.team.find(member => member.role === role);
+                        // Ensure name and email are present to send a valid notification
+                        if (assignedPerson && assignedPerson.name && assignedPerson.email) {
+                            notificationsToSend.push({
+                                recipientName: assignedPerson.name,
+                                recipientEmail: assignedPerson.email,
+                                taskName: dependentTask.name,
+                            });
+                            logAction('Prepare Notification', dependentTask.name, { recipient: assignedPerson.email });
+                        }
+                    }
+                }
+            });
+
+            if (notificationsToSend.length > 0) {
+                setNotificationQueue(prevQueue => [...prevQueue, ...notificationsToSend]);
+            }
+        }
+    
         setTasks(newTasks);
         saveProject({ ...project, tasks: newTasks });
         logAction('Update Task', taskId, { updatedData });
+    };
+
+    const handleUpdateTeam = (newTeam) => {
+        saveProject({ ...project, team: newTeam });
+        logAction('Update Team', project.name, { team: newTeam });
     };
     
     const handleAttachFile = (docId: string, fileData: { name: string, data: string }) => {
@@ -390,7 +434,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             case 'Dashboard': return <DashboardView project={{...project, ...projectMetrics}} phasesData={phasesData} isPlanningComplete={isPlanningComplete} projectPhases={projectPhases} />;
             case 'Project Phases': return <ProjectPhasesView project={project} projectPhases={projectPhases} phasesData={phasesData} documents={documents} error={error} loadingPhase={loadingPhase} handleUpdatePhaseData={handleUpdatePhaseData} handleCompletePhase={handleCompletePhase} handleGenerateContent={handleGenerateContent} handleAttachFile={handleAttachFile} handleRemoveAttachment={handleRemoveAttachment} />;
             case 'Documents': return <DocumentsView documents={documents} onUpdateDocument={handleUpdateDocument} />;
-            case 'Project Tracking': return <ProjectTrackingView project={project} tasks={tasks} sprints={project.sprints} milestones={milestones} projectStartDate={project.startDate} projectEndDate={projectMetrics.endDate} onUpdateTask={handleUpdateTask} />;
+            case 'Project Tracking': return <ProjectTrackingView project={project} tasks={tasks} sprints={project.sprints} milestones={milestones} projectStartDate={project.startDate} projectEndDate={projectMetrics.endDate} onUpdateTask={handleUpdateTask} onUpdateTeam={handleUpdateTeam} />;
             case 'Revision Control': return <RevisionControlView project={project} saveProject={saveProject} ai={ai} />;
             default: return null;
         }
@@ -415,6 +459,18 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             <div>
                 {renderContent()}
             </div>
+            
+            {notificationQueue.length > 0 && (
+                <NotificationModal
+                    isOpen={true}
+                    notification={notificationQueue[0]}
+                    onClose={() => setNotificationQueue(q => q.slice(1))} // Cancel or close
+                    onSend={() => {
+                        logAction('Send Notification', notificationQueue[0].taskName, { recipient: notificationQueue[0].recipientEmail });
+                        setNotificationQueue(q => q.slice(1)); // Send
+                    }}
+                />
+            )}
         </section>
     );
 };

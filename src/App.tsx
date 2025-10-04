@@ -107,6 +107,7 @@ const App = () => {
         scope, // 'internal' or 'subcontracted'
         discipline: template.discipline,
         phasesData: {},
+        team: [],
         documents: JSON.parse(JSON.stringify(template.documents || DEFAULT_DOCUMENTS)), // Deep copy from template
         tasks: [],
         sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)), // Keep sprints for initial UI structure
@@ -224,6 +225,7 @@ const App = () => {
                     apiKeyStatus={apiKeyStatus}
                     onSetUserKey={handleSetUserKey}
                     disabled={!ai}
+                    onRequestDelete={handleRequestDeleteProject}
                 />
             )}
         </main>

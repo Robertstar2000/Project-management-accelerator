@@ -346,53 +346,53 @@ In addition to these seven, add 1 to 5 more documents that are highly specific a
 This is a subcontracted project. The task list MUST include a "Subcontractor" column. Mark "Yes" in this column for tasks to be performed by the subcontractor, and "No" for internal tasks. The plan must include tasks for managing the subcontractor (e.g., "Review Subcontractor Deliverable").`
             : '';
 
-        const subcontractorColumns = scope === 'subcontracted' ? `"Task Name", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint", "Subcontractor"` : `"Task Name", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint"`;
+        const subcontractorColumns = scope === 'subcontracted' ? `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint", "Subcontractor"` : `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint"`;
         const subcontractorExample = scope === 'subcontracted' ?
 `## Tasks
-| Task Name | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint | Subcontractor |
-|---|---|---|---|---|---|
-| Team Onboarding | 2024-08-01 | 2024-08-02 | | Sprint 1 | No |
-| Subcontractor Kickoff | 2024-08-03 | 2024-08-03 | Team Onboarding | Sprint 1 | No |
-| Setup Development Environment | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 | Yes |
-| API Design | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 | Yes |
-| Review Subcontractor API Design | 2024-08-11 | 2024-08-11 | API Design | Sprint 1 | No |
-| User Authentication | 2024-08-12 | 2024-08-20 | Review Subcontractor API Design | Sprint 2 | Yes |
-| Profile Page UI | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 | Yes |
-| Sprint 2 Plan Review | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 | No |
-| Integration Testing | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 | No |
-| Critical Design Review | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 | No |
-| Staging Deployment | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 | No |` :
+| Task Name | Role | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint | Subcontractor |
+|---|---|---|---|---|---|---|
+| Team Onboarding | Project Manager | 2024-08-01 | 2024-08-02 | | Sprint 1 | No |
+| Subcontractor Kickoff | Project Manager | 2024-08-03 | 2024-08-03 | Team Onboarding | Sprint 1 | No |
+| Setup Development Environment | DevOps Engineer | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 | Yes |
+| API Design | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 | Yes |
+| Review Subcontractor API Design | Lead Engineer | 2024-08-11 | 2024-08-11 | API Design | Sprint 1 | No |
+| User Authentication | Backend Developer | 2024-08-12 | 2024-08-20 | Review Subcontractor API Design | Sprint 2 | Yes |
+| Profile Page UI | Frontend Developer | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 | Yes |
+| Sprint 2 Plan Review | Project Manager | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 | No |
+| Integration Testing | QA Engineer | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 | No |
+| Critical Design Review | Lead Engineer | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 | No |
+| Staging Deployment | DevOps Engineer | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 | No |` :
 `## Tasks
-| Task Name | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint |
-|---|---|---|---|---|
-| Team Onboarding | 2024-08-01 | 2024-08-02 | | Sprint 1 |
-| Setup Development Environment | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 |
-| API Design | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
-| Database Schema | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
-| Sprint 1 Plan Review | 2024-08-11 | 2024-08-11 | API Design, Database Schema | Sprint 1 |
-| User Authentication | 2024-08-12 | 2024-08-20 | Sprint 1 Plan Review | Sprint 2 |
-| Profile Page UI | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 |
-| Sprint 2 Plan Review | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 |
-| Integration Testing | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 |
-| Critical Design Review | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 |
-| Staging Deployment | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 |`;
+| Task Name | Role | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint |
+|---|---|---|---|---|---|
+| Team Onboarding | Project Manager | 2024-08-01 | 2024-08-02 | | Sprint 1 |
+| Setup Development Environment | DevOps Engineer | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 |
+| API Design | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
+| Database Schema | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
+| Sprint 1 Plan Review | Lead Engineer | 2024-08-11 | 2024-08-11 | API Design, Database Schema | Sprint 1 |
+| User Authentication | Backend Developer | 2024-08-12 | 2024-08-20 | Sprint 1 Plan Review | Sprint 2 |
+| Profile Page UI | Frontend Developer | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 |
+| Sprint 2 Plan Review | Lead Engineer | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 |
+| Integration Testing | QA Engineer | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 |
+| Critical Design Review | Lead Engineer | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 |
+| Staging Deployment | DevOps Engineer | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 |`;
 
         if (mode === 'minimal') {
             const subcontractorMinimalInstruction = scope === 'subcontracted' ? `Include a "Subcontractor" column (Yes/No).` : '';
-            const subcontractorMinimalColumns = scope === 'subcontracted' ? `| Task Name | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint | Subcontractor |\n|---|---|---|---|---|---|` : `| Task Name | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint |\n|---|---|---|---|---|`;
+            const subcontractorMinimalColumns = scope === 'subcontracted' ? `| Task Name | Role | Start Date | End Date | Dependencies | Sprint | Subcontractor |\n|---|---|---|---|---|---|---|` : `| Task Name | Role | Start Date | End Date | Dependencies | Sprint |\n|---|---|---|---|---|---|`;
             const subcontractorMinimalExample = scope === 'subcontracted' ?
-`| Setup | 2024-08-01 | 2024-08-02 | | Sprint 1 | Yes |
-| Build | 2024-08-03 | 2024-08-05 | Setup | Sprint 1 | Yes |
-| Review | 2024-08-06 | 2024-08-06 | Build | Sprint 1 | No |
-| Deploy | 2024-08-07 | 2024-08-07 | Review | Sprint 1 | No |` :
-`| Setup | 2024-08-01 | 2024-08-02 | | Sprint 1 |
-| Build | 2024-08-03 | 2024-08-05 | Setup | Sprint 1 |
-| Review | 2024-08-06 | 2024-08-06 | Build | Sprint 1 |
-| Deploy | 2024-08-07 | 2024-08-07 | Review | Sprint 1 |`;
+`| Setup | DevOps Engineer | 2024-08-01 | 2024-08-02 | | Sprint 1 | Yes |
+| Build | Backend Developer | 2024-08-03 | 2024-08-05 | Setup | Sprint 1 | Yes |
+| Review | Lead Engineer | 2024-08-06 | 2024-08-06 | Build | Sprint 1 | No |
+| Deploy | DevOps Engineer | 2024-08-07 | 2024-08-07 | Review | Sprint 1 | No |` :
+`| Setup | DevOps Engineer | 2024-08-01 | 2024-08-02 | | Sprint 1 |
+| Build | Backend Developer | 2024-08-03 | 2024-08-05 | Setup | Sprint 1 |
+| Review | Lead Engineer | 2024-08-06 | 2024-08-06 | Build | Sprint 1 |
+| Deploy | DevOps Engineer | 2024-08-07 | 2024-08-07 | Review | Sprint 1 |`;
 
           return `Generate a minimal project plan for "${name}" in strict Markdown.
 - WBS should be 2 levels deep, max.
-- Task list should have 5 tasks, max. Use short names. It MUST include at least one sprint and one 'Review' task.
+- Task list should have 5 tasks, max. Use short names. It MUST include at least one sprint and one 'Review' task. Assign a relevant role to each task.
 - Milestones list should have 2 milestones, max.
 - Do not include any explanations. All terminology must be professional and standard for the '${discipline}' field.
 ${subcontractorMinimalInstruction}
@@ -415,7 +415,7 @@ ${subcontractorMinimalExample}
 NOW, GENERATE THE MINIMAL PLAN FOR THE "${name}" PROJECT.
 `;
         }
-        return `Act as an expert project manager for a project named "${name}" in the "${discipline}" field. Based on the following Statement of Work (SOW):\n\n${context}\n\nGenerate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). CRITICAL: The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. The "Dependencies" column must contain the exact "Task Name" of any preceding tasks, or be empty if there are none. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
+        return `Act as an expert project manager for a project named "${name}" in the "${discipline}" field. Based on the following Statement of Work (SOW) and Resources List:\n\n${context}\n\nGenerate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). CRITICAL: Assign a relevant role from the 'Resources & Skills List' to each task in the 'Role' column. The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. The "Dependencies" column must contain the exact "Task Name" of any preceding tasks, or be empty if there are none. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
 
 Here is an example of the required format:
 ---
@@ -461,12 +461,12 @@ Create a list of key milestones in a Markdown table with the columns: "Milestone
     phase8: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'These review documents must include checkpoints specifically for subcontractor deliverables and ensuring their work aligns with the overall project goals.' : '';
         if (mode === 'minimal') {
-            return `Generate three minimal checklists for "${name}": "Sprint Requirements", "Sprint Plan Review", and "Critical Review". Use only 2-3 bullet points for each. Use clear headings for each document. ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
+            return `Generate three minimal checklists for "${name}": "Sprint Requirements", "Sprint Plan Review", and "Critical Review". Use only 2-3 bullet points for each. Use clear headings for each document. The Critical Review must include a check for team assignments. ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
         return `For the project "${name}", generate the content for the following three documents in order, using clear headings for each:
 1.  **Sprint Requirements:** A detailed set of requirements and task lists for all planned sprints.
 2.  **Sprint Plan Review:** A checklist for conducting a peer review of each sprint plan. This is a formal review document.
-3.  **Critical Review:** A final, high-level checklist to ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. This is a formal review document.
+3.  **Critical Review:** A final, high-level checklist to ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. This is a formal review document. CRITICAL: This checklist must include a bullet point to "- **Team Assignments:** Confirm all project roles have been assigned a team member in the 'Project Tracking > Team' view."
 ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field throughout all three documents.`;
     },
     phase9: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {

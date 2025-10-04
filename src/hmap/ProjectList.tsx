@@ -1,12 +1,18 @@
 import React from 'react';
 
-export const ProjectList = ({ projects, onSelectProject, onNewProject, disabled }) => {
+export const ProjectList = ({ projects, onSelectProject, onNewProject, disabled, onRequestDelete }) => {
     const handleSelect = (project) => {
         if (disabled) {
             alert('Please provide an API Key before opening a project.');
             return;
         }
         onSelectProject(project);
+    };
+
+    const handleDelete = (e, project) => {
+        e.stopPropagation();
+        if (disabled) return;
+        onRequestDelete(project);
     };
 
     return (
@@ -18,17 +24,26 @@ export const ProjectList = ({ projects, onSelectProject, onNewProject, disabled 
         {projects.length > 0 ? (
           <div className="project-grid">
             {projects.map((p) => (
-              <div 
-                key={p.id} 
-                className="project-card" 
-                onClick={() => handleSelect(p)} 
-                role="button" 
-                tabIndex={disabled ? -1 : 0} 
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSelect(p)}
-                aria-disabled={disabled}
-              >
-                <h3>{p.name}</h3>
-                <p>{p.discipline}</p>
+              <div key={p.id} className="project-card-container">
+                <div 
+                  className="project-card" 
+                  onClick={() => handleSelect(p)} 
+                  role="button" 
+                  tabIndex={disabled ? -1 : 0} 
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSelect(p)}
+                  aria-disabled={disabled}
+                >
+                  <h3>{p.name}</h3>
+                  <p>{p.discipline}</p>
+                </div>
+                <button 
+                  className="button button-danger button-small delete-project-button"
+                  onClick={(e) => handleDelete(e, p)}
+                  disabled={disabled}
+                  aria-label={`Delete project ${p.name}`}
+                >
+                  Delete
+                </button>
               </div>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
+import { TeamView } from './TeamView';
 
 const getHealthChipClass = (health) => {
     switch (health) {
@@ -22,7 +23,7 @@ const statusDescriptions = {
     done: 'Done: Task is fully complete and approved.',
 };
 
-const TaskListView = ({ tasks, onUpdateTask }) => {
+const TaskListView = ({ tasks, onUpdateTask, team }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [dateErrors, setDateErrors] = useState({});
     const taskRefs = useRef({});
@@ -124,6 +125,7 @@ const TaskListView = ({ tasks, onUpdateTask }) => {
                 <thead>
                     <tr>
                         <th>Task Name</th>
+                        <th>Assigned To</th>
                         <th>Subcontractor Task</th>
                         <th>Dependencies</th>
                         <th>Status</th>
@@ -149,6 +151,13 @@ const TaskListView = ({ tasks, onUpdateTask }) => {
                                 title={isOverdue ? `Overdue: Planned due date was ${task.endDate}` : ''}
                             >
                                 <td>{task.name}</td>
+                                <td>
+                                    {(() => {
+                                        if (!task.role) return 'N/A';
+                                        const assignedPerson = team.find(member => member.role === task.role);
+                                        return assignedPerson ? assignedPerson.name : <span style={{color: 'var(--secondary-text)'}}>Unassigned</span>;
+                                    })()}
+                                </td>
                                 <td>{task.isSubcontracted ? 'Yes' : 'No'}</td>
                                 <td>
                                     <select
@@ -404,14 +413,14 @@ const MilestonesView = ({ milestones }) => {
     );
 };
 
-export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask }) => {
+export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask, onUpdateTeam }) => {
     const [view, setView] = useState(() => {
-        return localStorage.getItem(`hantt-tracking-view-${project.id}`) || 'Timeline';
+        return localStorage.getItem(`hmap-tracking-view-${project.id}`) || 'Timeline';
     });
 
     const handleSetView = (newView) => {
         setView(newView);
-        localStorage.setItem(`hantt-tracking-view-${project.id}`, newView);
+        localStorage.setItem(`hmap-tracking-view-${project.id}`, newView);
     };
 
     const renderView = () => {
@@ -419,11 +428,13 @@ export const ProjectTrackingView = ({ project, tasks, sprints, milestones, proje
             case 'Timeline':
                 return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
             case 'Task List':
-                return <TaskListView tasks={tasks} onUpdateTask={onUpdateTask} />;
+                return <TaskListView tasks={tasks} onUpdateTask={onUpdateTask} team={project.team || []} />;
             case 'Kanban':
                 return <KanbanView tasks={tasks} />;
             case 'Milestones':
                 return <MilestonesView milestones={milestones} />;
+            case 'Team':
+                return <TeamView project={project} onUpdateTeam={onUpdateTeam} />;
             default:
                 return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
         }
@@ -437,6 +448,7 @@ export const ProjectTrackingView = ({ project, tasks, sprints, milestones, proje
                 <button onClick={() => handleSetView('Task List')} className={view === 'Task List' ? 'button button-primary' : 'button'}>Task List</button>
                 <button onClick={() => handleSetView('Kanban')} className={view === 'Kanban' ? 'button button-primary' : 'button'}>Kanban Board</button>
                 <button onClick={() => handleSetView('Milestones')} className={view === 'Milestones' ? 'button button-primary' : 'button'}>Milestones</button>
+                <button onClick={() => handleSetView('Team')} className={view === 'Team' ? 'button button-primary' : 'button'}>Team</button>
             </div>
             {renderView()}
         </div>
