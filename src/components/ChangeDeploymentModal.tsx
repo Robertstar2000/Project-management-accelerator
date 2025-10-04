@@ -21,12 +21,11 @@ const parseDeploymentPlan = (plan, allTasks, allSprints) => {
 
             const action = actionMatch[1];
             const restOfLine = line.substring(actionMatch[0].length).trim();
-            // FIX: Initialize details as type 'any' to allow dynamic property assignment for parsed deployment plan steps.
             let target, details: any = {};
 
             if (action === 'DELETE') {
                 target = restOfLine;
-            } else { // ADD or EDIT
+            } else { 
                 const partsMatch = restOfLine.match(/(.*?)\s*\((.*)\)/);
                 if (partsMatch) {
                     target = partsMatch[1].trim();
@@ -38,17 +37,15 @@ const parseDeploymentPlan = (plan, allTasks, allSprints) => {
                         })
                     );
                 } else {
-                    target = restOfLine; // No details provided
+                    target = restOfLine;
                 }
             }
             
-            // Resolve dependencies from name to ID
             if (details['Depends On']) {
                 const depTask = allTasks.find(t => t.name === details['Depends On']);
                 if (depTask) details.dependsOnId = depTask.id;
             }
             
-            // Resolve sprint from name to ID
             if (details['Sprint']) {
                 const sprint = allSprints.find(s => s.name === details['Sprint']);
                 if (sprint) details.sprintId = sprint.id;
@@ -61,7 +58,7 @@ const parseDeploymentPlan = (plan, allTasks, allSprints) => {
     return { affectedDocs, taskChanges };
 };
 
-export const ChangeDeploymentModal = ({ isOpen, onClose, deploymentPlan, project, saveProject }) => {
+export const ChangeDeploymentModal = ({ isOpen, onClose, deploymentPlan, project, onUpdateProject }) => {
     const [steps, setSteps] = useState([]);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -82,12 +79,12 @@ export const ChangeDeploymentModal = ({ isOpen, onClose, deploymentPlan, project
 
     const handleApply = () => {
         const step = steps[currentStepIndex];
-        let updatedProject = JSON.parse(JSON.stringify(project)); // Deep copy
+        let updatedTasks = [...project.tasks];
 
         if (step.type === 'task') {
             switch (step.action) {
                 case 'ADD':
-                    updatedProject.tasks.push({
+                    updatedTasks.push({
                         id: `task-${Date.now()}`,
                         name: step.target,
                         startDate: step.details['Start'] || new Date().toISOString().split('T')[0],
@@ -100,30 +97,30 @@ export const ChangeDeploymentModal = ({ isOpen, onClose, deploymentPlan, project
                     });
                     break;
                 case 'DELETE':
-                    updatedProject.tasks = updatedProject.tasks.filter(t => t.name !== step.target);
+                    updatedTasks = updatedTasks.filter(t => t.name !== step.target);
                     break;
                 case 'EDIT':
-                    const taskIndex = updatedProject.tasks.findIndex(t => t.name === step.target);
+                    const taskIndex = updatedTasks.findIndex(t => t.name === step.target);
                     if (taskIndex > -1) {
-                        if (step.details['End']) updatedProject.tasks[taskIndex].endDate = step.details['End'];
-                        if (step.details.sprintId) updatedProject.tasks[taskIndex].sprintId = step.details.sprintId;
+                        if (step.details['End']) updatedTasks[taskIndex].endDate = step.details['End'];
+                        if (step.details.sprintId) updatedTasks[taskIndex].sprintId = step.details.sprintId;
                         if (step.details.dependsOnId) {
-                            if (!updatedProject.tasks[taskIndex].dependsOn.includes(step.details.dependsOnId)) {
-                                updatedProject.tasks[taskIndex].dependsOn.push(step.details.dependsOnId);
+                            if (!updatedTasks[taskIndex].dependsOn.includes(step.details.dependsOnId)) {
+                                updatedTasks[taskIndex].dependsOn.push(step.details.dependsOnId);
                             }
                         }
                     }
                     break;
             }
+             onUpdateProject({ tasks: updatedTasks });
         }
         
-        saveProject(updatedProject);
-        logAction('Deploy Change Step', `Step ${currentStepIndex + 1}`, { step, project: updatedProject });
+        logAction('Deploy Change Step', `Step ${currentStepIndex + 1}`, { step, project });
 
         if (currentStepIndex < steps.length - 1) {
             setCurrentStepIndex(currentStepIndex + 1);
         } else {
-            onClose(); // Auto-close on finish
+            onClose(); 
         }
     };
     

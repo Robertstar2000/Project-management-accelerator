@@ -297,6 +297,8 @@ CRITICAL: You MUST include the following seven core HMAP documents, assigned to 
 - "Project Timeline" (must be in phase 7)
 
 In addition to these seven, add 1 to 5 more documents that are highly specific and standard for the "${discipline}" discipline.
+
+Your final output must be a single, raw JSON object, without any surrounding text or markdown formatting. This JSON object must have a single root key named "documents" containing an array of document objects. Each document object must have exactly two keys: "title" (string) and "phase" (number).
 `,
     phase1: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'Crucially, the proposal must differentiate between the internal project management team\'s responsibilities and the scope of work to be performed by the subcontractor.' : '';

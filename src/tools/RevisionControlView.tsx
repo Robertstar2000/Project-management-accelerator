@@ -21,31 +21,22 @@ const applyImpact = (baseline, impact) => {
     };
 };
 
-export const RevisionControlView = ({ project, saveProject, ai }) => {
-    const [cr, setCr] = useState(project.changeRequest || { title: '', reason: '', impactStr: '' });
-    const [scenarios, setScenarios] = useState(project.scenarios || []);
+export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
+    const { changeRequest: cr, scenarios, name, discipline, tasks, documents, budget, endDate } = project;
     const [newScenario, setNewScenario] = useState({ name: '', impactStr: '' });
     const [deploymentPlan, setDeploymentPlan] = useState('');
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
     const [isDeploying, setIsDeploying] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        setCr(project.changeRequest || { title: '', reason: '', impactStr: '' });
-        setScenarios(project.scenarios || []);
-        // Do not reset deploymentPlan on project change, it's specific to an action
-    }, [project]);
-
     const handleCrChange = (newCrData) => {
-        setCr(newCrData);
-        saveProject({ ...project, changeRequest: newCrData });
-        logAction('Update Change Request', project.name, newCrData);
+        onUpdateProject({ changeRequest: newCrData });
+        logAction('Update Change Request', name, newCrData);
     };
 
     const handleScenariosChange = (newScenarios) => {
-        setScenarios(newScenarios);
-        saveProject({ ...project, scenarios: newScenarios });
-        logAction('Update Scenarios', project.name, newScenarios);
+        onUpdateProject({ scenarios: newScenarios });
+        logAction('Update Scenarios', name, newScenarios);
     };
 
     const handleAddScenario = (e) => {
@@ -66,8 +57,8 @@ export const RevisionControlView = ({ project, saveProject, ai }) => {
         setError('');
         try {
             const promptFn = PROMPTS.changeDeploymentPlan;
-            const prompt = promptFn(project.name, project.discipline, cr, project.tasks, project.documents);
-            logAction('Generate Change Plan', project.name, { promptLength: prompt.length });
+            const prompt = promptFn(name, discipline, cr, tasks, documents);
+            logAction('Generate Change Plan', name, { promptLength: prompt.length });
             
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
@@ -75,20 +66,20 @@ export const RevisionControlView = ({ project, saveProject, ai }) => {
             });
 
             setDeploymentPlan(response.text);
-            logAction('Generate Change Plan Success', project.name, { plan: response.text });
+            logAction('Generate Change Plan Success', name, { plan: response.text });
         } catch (err) {
             console.error("API Error generating deployment plan:", err);
             setError("Failed to generate the deployment plan. Please check the console and try again.");
-            logAction('Generate Change Plan Failure', project.name, { error: err.message });
+            logAction('Generate Change Plan Failure', name, { error: err.message });
         } finally {
             setIsGeneratingPlan(false);
         }
     };
 
     const baseline = useMemo(() => ({
-        budget: project.budget,
-        endDate: project.endDate,
-    }), [project.budget, project.endDate]);
+        budget: budget,
+        endDate: endDate,
+    }), [budget, endDate]);
     
     const crImpact = useMemo(() => parseImpact(cr.impactStr), [cr.impactStr]);
     const crResult = useMemo(() => applyImpact(baseline, crImpact), [baseline, crImpact]);
@@ -142,10 +133,10 @@ ${cr.reason}
             content: changeDocContent.trim(),
         };
 
-        const updatedDocuments = [...project.documents, newDoc];
-        saveProject({ ...project, documents: updatedDocuments });
+        const updatedDocuments = [...documents, newDoc];
+        onUpdateProject({ documents: updatedDocuments });
 
-        logAction('Save Change Request as Document', project.name, { document: newDoc });
+        logAction('Save Change Request as Document', name, { document: newDoc });
         alert(`Change Request document "${newDoc.title}" has been created and added to the Documents Center for approval.`);
     };
 
@@ -230,7 +221,7 @@ ${cr.reason}
                 onClose={() => setIsDeploying(false)}
                 deploymentPlan={deploymentPlan}
                 project={project}
-                saveProject={saveProject}
+                onUpdateProject={onUpdateProject}
             />
         </div>
     );
