@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PhaseCard } from '../components/PhaseCard';
 import { PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
 
-export const ProjectPhasesView = ({ project, projectPhases, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent, handleAttachFile, handleRemoveAttachment }) => {
+export const ProjectPhasesView = ({ project, projectPhases, phasesData, documents, error, loadingPhase, handleUpdatePhaseData, handleCompletePhase, handleGenerateContent, handleAttachFile, handleRemoveAttachment, generationMode, onSetGenerationMode, isAutoGenerating }) => {
     const [openPhases, setOpenPhases] = useState(() => {
         try {
             // Default to opening the first un-approved document
@@ -59,14 +59,55 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
         return { isLocked: false, lockReason: null };
     };
 
+    const isPhase1Complete = documents
+        .filter(d => d.phase === 1)
+        .every(d => d.status === 'Approved');
+
     return (
         <div>
             {error && <div className="status-message error">{error}</div>}
+            
+            {isPhase1Complete && (
+                <div className="tool-card" style={{ marginBottom: '1.5rem', background: 'var(--background-color)' }}>
+                    <div className="form-group">
+                        <label>Generation Mode</label>
+                        <div className="mode-switch">
+                            <button 
+                                type="button" 
+                                onClick={() => onSetGenerationMode('manual')} 
+                                className={generationMode === 'manual' ? 'active' : ''}
+                                aria-pressed={generationMode === 'manual'}
+                                disabled={isAutoGenerating}
+                            >
+                                Review and align every document
+                                <span>Manually generate, edit, and approve each document.</span>
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => onSetGenerationMode('automatic')} 
+                                className={generationMode === 'automatic' ? 'active' : ''}
+                                aria-pressed={generationMode === 'automatic'}
+                                disabled={isAutoGenerating}
+                            >
+                                Generate all necessary documents automatically
+                                <span>The AI will generate and approve all remaining documents.</span>
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--secondary-text)', marginTop: '1rem', padding: '0 0.5rem', lineHeight: '1.5' }}>
+                            Although documents are automatically created they may be extensive and each will require your review, editing and approval. This will provide the best alignment with your intent. Skipping manual review and edit with automatic document generation is faster but still requires time to complete a full set of documents.
+                        </p>
+                        {isAutoGenerating && <p style={{color: 'var(--accent-color)', textAlign: 'center', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}><span className="spinner" style={{width: '20px', height: '20px', borderWidth: '2px'}}></span>Automatic generation in progress...</p>}
+                    </div>
+                </div>
+            )}
+
             {projectPhases.map((phase, index) => {
                 const doc = documents.find(d => d.id === phase.id);
                 const { isLocked, lockReason } = getLockStatus(phase.id);
                 // Status for the chip: 'locked', 'completed' (if approved), or 'todo' (if working/rejected/etc.)
                 const status = isLocked ? 'locked' : (doc?.status === 'Approved' ? 'completed' : 'todo');
+                const isLoading = loadingPhase?.docId === phase.id;
+                const loadingStep = isLoading ? loadingPhase.step : null;
 
                 return (
                     <PhaseCard
@@ -83,7 +124,8 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
                         onAttachFile={handleAttachFile}
                         onRemoveAttachment={handleRemoveAttachment}
                         status={status}
-                        isLoading={loadingPhase === phase.id}
+                        isLoading={isLoading}
+                        loadingStep={loadingStep}
                         isOpen={openPhases.includes(phase.id)}
                         onToggleOpen={() => togglePhaseOpen(phase.id)}
                     />

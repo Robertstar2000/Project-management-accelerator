@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Type } from "@google/genai";
 import { TEMPLATES, PROMPTS } from '../constants/projectData';
@@ -7,6 +9,8 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [projectMode, setProjectMode] = useState(null); // 'fullscale' or 'minimal'
   const [projectScope, setProjectScope] = useState(null); // 'internal' or 'subcontracted'
+  const [teamSize, setTeamSize] = useState(null); // 'small', 'medium', or 'large'
+  const [projectComplexity, setProjectComplexity] = useState('typical'); // 'easy', 'typical', 'complex'
   const [activeTab, setActiveTab] = useState('create');
   const [creationMode, setCreationMode] = useState(null); // 'template' or 'custom'
   const [customDiscipline, setCustomDiscipline] = useState('');
@@ -16,12 +20,20 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
   
   const selectedTemplate = useMemo(() => TEMPLATES.find(t => t.id === selectedTemplateId), [selectedTemplateId]);
 
+  // Set the initial tab and focus when the modal opens.
+  // This is separated to prevent the tab from resetting on unrelated re-renders.
   useEffect(() => {
     if (isOpen) {
         modalRef.current?.focus();
         // Default to 'select' tab if projects exist, otherwise 'create'
         setActiveTab(projects && projects.length > 0 ? 'select' : 'create');
     }
+  }, [isOpen, projects]);
+
+  // Handle the Escape key to close the modal.
+  useEffect(() => {
+    if (!isOpen) return; // Don't add listener if modal is closed
+
     const handleEsc = (event) => {
         if (event.key === 'Escape') {
             onClose();
@@ -29,7 +41,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose, projects]);
+  }, [isOpen, onClose]);
 
   const resetAndClose = () => {
       onClose();
@@ -37,6 +49,8 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
       setSelectedTemplateId(null);
       setProjectMode(null);
       setProjectScope(null);
+      setTeamSize(null);
+      setProjectComplexity('typical');
       setCreationMode(null);
       setCustomDiscipline('');
       setError('');
@@ -53,6 +67,14 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
     }
     if (!projectScope) {
         setError("Please select a project scope (Internal or Subcontracted).");
+        return;
+    }
+    if (!teamSize) {
+        setError("Please select a team size.");
+        return;
+    }
+     if (!projectComplexity) {
+        setError("Please select a project complexity.");
         return;
     }
     if (!name.trim()) {
@@ -76,12 +98,11 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
     if (creationMode === 'template') {
         template = TEMPLATES.find(t => t.id === selectedTemplateId);
         if (!template) return;
-        onCreateProject({ name, template, mode: projectMode, scope: projectScope });
-        resetAndClose();
+        onCreateProject({ name, template, mode: projectMode, scope: projectScope, teamSize, complexity: projectComplexity });
     } else { // Custom mode
         setIsGeneratingDocs(true);
         try {
-            const prompt = PROMPTS.generateDocumentList(customDiscipline.trim(), projectScope);
+            const prompt = PROMPTS.generateDocumentList(customDiscipline.trim(), projectScope, teamSize, projectComplexity);
             const schema = {
                 type: Type.OBJECT,
                 properties: {
@@ -104,7 +125,12 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
-                config: { responseMimeType: "application/json", responseSchema: schema },
+                config: { 
+                    responseMimeType: "application/json", 
+                    responseSchema: schema,
+                    maxOutputTokens: 7900,
+                    thinkingConfig: { thinkingBudget: 1000 },
+                },
             });
             
             const rawDocs = JSON.parse(response.text).documents;
@@ -124,8 +150,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                 documents: generatedDocs
             };
             
-            onCreateProject({ name, template, mode: projectMode, scope: projectScope });
-            resetAndClose();
+            onCreateProject({ name, template, mode: projectMode, scope: projectScope, teamSize, complexity: projectComplexity });
 
         } catch (error) {
             console.error("Failed to generate custom document list:", error);
@@ -149,6 +174,14 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
         return "The discipline is determined by the selected template. Switch to 'Create My Own' to edit.";
     }
     return "Select 'Create My Own' to define a custom discipline.";
+  };
+
+  const complexityLevels = ['easy', 'typical', 'complex'];
+  const complexityValue = complexityLevels.indexOf(projectComplexity);
+
+  const handleComplexityChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    setProjectComplexity(complexityLevels[value]);
   };
 
   if (!isOpen) return null;
@@ -175,7 +208,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                             <li key={p.id}>
                                 <div className="project-info">
                                     <strong>{p.name}</strong>
-                                    <span>{p.discipline} ({p.mode || 'fullscale'}, {p.scope || 'internal'})</span>
+                                    <span>{p.discipline} ({p.mode || 'fullscale'}, {p.scope || 'internal'}, {p.teamSize} team)</span>
                                 </div>
                                 <div className="project-actions">
                                     <button className="button button-small" onClick={() => handleSelect(p)}>Select</button>
@@ -195,7 +228,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
         {activeTab === 'create' && (
             <div className="create-project-section">
                 <h3>Create a New Project</h3>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} id="new-project-form">
                     <div className="form-group">
                         <label>1. Select Project Mode</label>
                         <div className="mode-switch">
@@ -225,12 +258,49 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="projectNameModal">3. Project Name</label>
+                        <label>3. Select Team Size</label>
+                        <div className="mode-switch" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                            <button type="button" onClick={() => setTeamSize('small')} className={teamSize === 'small' ? 'active' : ''} aria-pressed={teamSize === 'small'}>
+                                Small
+                                <span>1-3 people</span>
+                            </button>
+                            <button type="button" onClick={() => setTeamSize('medium')} className={teamSize === 'medium' ? 'active' : ''} aria-pressed={teamSize === 'medium'}>
+                                Medium
+                                <span>4-16 people</span>
+                            </button>
+                             <button type="button" onClick={() => setTeamSize('large')} className={teamSize === 'large' ? 'active' : ''} aria-pressed={teamSize === 'large'}>
+                                Large
+                                <span>16-100 people</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="projectComplexitySlider">4. Set Project Complexity: <strong style={{color: 'var(--accent-color)', textTransform: 'capitalize'}}>{projectComplexity}</strong></label>
+                        <input
+                            id="projectComplexitySlider"
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="1"
+                            value={complexityValue}
+                            onChange={handleComplexityChange}
+                            style={{width: '100%', marginTop: '0.5rem', cursor: 'pointer'}}
+                        />
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--secondary-text)', padding: '0 5px'}}>
+                            <span>Easy</span>
+                            <span>Typical</span>
+                            <span>Complex</span>
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="projectNameModal">5. Project Name</label>
                         <input id="projectNameModal" type="text" value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
                     
                     <div className="form-group">
-                        <label>4. Select Template Option</label>
+                        <label>6. Select Template Option</label>
                         <div className="mode-switch">
                             <button type="button" onClick={() => setCreationMode('template')} className={creationMode === 'template' ? 'active' : ''} aria-pressed={creationMode === 'template'}>
                                 Use a Template
@@ -245,7 +315,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
 
                     {creationMode === 'template' && (
                         <div className="form-group">
-                            <label>5. Select a Project Template</label>
+                            <label>7. Select a Project Template</label>
                             <div className="template-selection-grid">
                             {TEMPLATES.map(template => (
                                 <div 
@@ -287,17 +357,24 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                     </div>
 
                     {error && <p style={{ color: 'var(--error-color)', textAlign: 'center', marginBottom: '1rem', fontWeight: 'bold' }}>{error}</p>}
-                    <div className="form-group" style={{marginBottom: 0}}>
-                        <button type="submit" className="button button-primary" style={{width: '100%'}} disabled={isGeneratingDocs}>
-                            {isGeneratingDocs ? 'Generating Document List...' : 'Launch Project'}
-                        </button>
-                    </div>
                 </form>
             </div>
         )}
 
         <div className="modal-actions" style={{justifyContent: 'center'}}>
-          <button type="button" className="button" onClick={onClose}>Close</button>
+            {activeTab === 'create' ? (
+                <button
+                    type="submit"
+                    form="new-project-form"
+                    className="button button-primary"
+                    style={{width: '100%'}}
+                    disabled={isGeneratingDocs}
+                >
+                    {isGeneratingDocs ? 'Generating Document List...' : 'Launch Project'}
+                </button>
+            ) : (
+                <button type="button" className="button" onClick={onClose}>Close</button>
+            )}
         </div>
       </div>
     </div>

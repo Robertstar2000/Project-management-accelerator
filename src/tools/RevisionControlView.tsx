@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';
@@ -19,6 +22,22 @@ const applyImpact = (baseline, impact) => {
         endDate: newEndDate.toISOString().split('T')[0],
         budget: baseline.budget + impact.cost,
     };
+};
+
+// Safety limits for API payload
+const MAX_PAYLOAD_CHARS = 900000; // Be conservative to avoid 1MB limit.
+const MAX_OUTPUT_TOKENS_ESTIMATE_CHARS = 8000 * 4; // Reserve ~32k chars for output
+
+const truncatePrompt = (prompt: string): string => {
+    const totalLimit = MAX_PAYLOAD_CHARS - MAX_OUTPUT_TOKENS_ESTIMATE_CHARS;
+    if (prompt.length <= totalLimit) {
+        return prompt;
+    }
+
+    console.warn('Prompt is too large, truncating from the end to fit payload limits.');
+    logAction('Truncate Prompt', 'Payload Management', { originalLength: prompt.length, newLength: totalLimit });
+    
+    return prompt.substring(0, totalLimit) + "\n...[PROMPT TRUNCATED DUE TO PAYLOAD SIZE]...";
 };
 
 export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
@@ -57,12 +76,17 @@ export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
         setError('');
         try {
             const promptFn = PROMPTS.changeDeploymentPlan;
-            const prompt = promptFn(name, discipline, cr, tasks, documents);
+            const promptText = promptFn(name, discipline, cr, tasks, documents);
+            const prompt = truncatePrompt(promptText);
             logAction('Generate Change Plan', name, { promptLength: prompt.length });
             
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
+                config: {
+                    maxOutputTokens: 7900,
+                    thinkingConfig: { thinkingBudget: 1000 },
+                }
             });
 
             setDeploymentPlan(response.text);
@@ -137,7 +161,7 @@ ${cr.reason}
         onUpdateProject({ documents: updatedDocuments });
 
         logAction('Save Change Request as Document', name, { document: newDoc });
-        alert(`Change Request document "${newDoc.title}" has been created and added to the Documents Center for approval.`);
+        alert(`Document "${newDoc.title}" has been created and added to the Documents Center for approval.`);
     };
 
     return (

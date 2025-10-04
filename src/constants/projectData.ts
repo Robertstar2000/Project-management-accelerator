@@ -1,3 +1,4 @@
+
 export const TEMPLATES = [
   {
     id: 'software-dev',
@@ -271,10 +272,56 @@ export const DEFAULT_SPRINTS = [
 export const DEFAULT_TASKS = [];
 export const DEFAULT_MILESTONES = [];
 
+const TEAM_SIZE_INSTRUCTIONS = {
+    complexity: {
+        small: "The project team is small (1-3 people). The scope should be minimal.",
+        medium: "The project team is medium-sized (4-16 people). The scope should be standard for a professional project.",
+        large: "The project team is large (16-100 people). The scope should be significant, involving multiple stakeholders and detailed coordination."
+    },
+    roles: {
+        small: "The team is small (1-3 people), so list only 2-3 essential, multi-skilled roles. Combine roles where possible (e.g., 'Developer/Designer').",
+        medium: "The team is medium-sized (4-16 people). Provide a standard list of 5-8 distinct roles, including a lead or manager.",
+        large: "The team is large (16-100 people). Provide a comprehensive list of 10+ specialized roles, including leads, managers, and distinct sub-teams (e.g., Frontend Team, Backend Team)."
+    },
+    wbs: {
+        small: "The team is small (1-3 people). Generate a simple plan with a minimal WBS (2 levels deep, 5-10 total items) and a short task list (10-15 tasks).",
+        medium: "The team is medium-sized (4-16 people). Generate a standard project plan with a moderately detailed WBS (2-3 levels deep, 15-25 total items) and a comprehensive task list (20-40 tasks).",
+        large: "The team is large (16-100 people). Generate a highly detailed and complex project plan with a deep WBS (3-4 levels, 40+ total items) and an extensive task list (50-100+ tasks), including management and coordination tasks."
+    }
+};
+
+export const COMPLEXITY_INSTRUCTIONS = {
+    easy: "The project complexity is 'Easy'. This means the scope is small, requirements are simple and well-understood, and there are minimal external dependencies. All generated documents and plans should reflect this simplicity. Focus on clarity and brevity.",
+    typical: "The project complexity is 'Typical'. This means there is a moderate scope, some ambiguity in requirements, and a few dependencies. All generated documents and plans should reflect a standard level of professional detail suitable for a formal project environment.",
+    complex: "The project complexity is 'Complex'. This means the scope is large, requirements are ambiguous or evolving, and there are significant external dependencies and risks. All generated documents and plans must be extremely detailed, comprehensive, and account for this complexity, including sections on risk mitigation and stakeholder management."
+};
+
+
 export const PROMPTS = {
-    generateDocumentList: (discipline, scope = 'internal') => `
+    compactContent: (contentToCompact) => `
+You are an expert data compression model. Your task is to take the following project document and compact it into a dense, LLM-readable format.
+The goal is to retain ALL information, specifications, numbers, lists, and key concepts, but remove all human-friendly prose, articles, and connectors.
+Use abbreviations, symbols, and a JSON-like or YAML-like structure where possible. Eliminate redundancy. The output should be as short as possible without losing any data. This output will be used as context for a future LLM prompt, so it must be information-rich.
+
+DO NOT summarize. You must retain all specific details.
+
+Here is the document to compact:
+---
+${contentToCompact}
+---
+`,
+    generateDocumentList: (discipline, scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const docCount = {
+            easy: '6 to 8',
+            typical: '8 to 12',
+            complex: '12 to 16'
+        }[complexity];
+        
+        return `
 You are an expert project manager specializing in the "${discipline}" field.
-Your task is to generate a list of 8 to 12 essential project documents required to plan and execute a project in this discipline.
+Your task is to generate a list of ${docCount} essential project documents required to plan and execute a project in this discipline.
+${TEAM_SIZE_INSTRUCTIONS.complexity[teamSize]}
+${COMPLEXITY_INSTRUCTIONS[complexity]}
 ${scope === 'subcontracted' ? 'This is a subcontracted project, so your list MUST include documents for managing the subcontractor, and documents should clearly reflect the division of responsibilities.' : ''}
 The project follows a 9-phase methodology (HMAP). You must assign each document to the most appropriate phase. The phases are:
 1.  **Develop Concept Proposal**: Define scope, vision, and high-level objectives.
@@ -296,53 +343,70 @@ CRITICAL: You MUST include the following seven core HMAP documents, assigned to 
 - "Detailed Plans (WBS/WRS)" (must be in phase 7)
 - "Project Timeline" (must be in phase 7)
 
-In addition to these seven, add 1 to 5 more documents that are highly specific and standard for the "${discipline}" discipline.
+In addition to these seven, add more documents that are highly specific and standard for the "${discipline}" discipline to meet the total count of ${docCount}.
 
 Your final output must be a single, raw JSON object, without any surrounding text or markdown formatting. This JSON object must have a single root key named "documents" containing an array of document objects. Each document object must have exactly two keys: "title" (string) and "phase" (number).
-`,
-    phase1: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+`;
+    },
+    phase1: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'Crucially, the proposal must differentiate between the internal project management team\'s responsibilities and the scope of work to be performed by the subcontractor.' : '';
+        const teamSizeInstruction = TEAM_SIZE_INSTRUCTIONS.complexity[teamSize];
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Generate a cryptic, one-sentence concept proposal for a project named "${name}" in the "${discipline}" field. The proposal must be specifically about "${name}". ${subcontractorInstruction} Use technical jargon and abbreviations specific to the '${discipline}' field. Output only the sentence.`;
+            return `Generate a cryptic, one-sentence concept proposal for a project named "${name}" in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} The proposal must be specifically about "${name}". ${subcontractorInstruction} Use technical jargon and abbreviations specific to the '${discipline}' field. Output only the sentence.`;
         }
-        return `You are a project manager creating a Concept Proposal for a project named "${name}", which is a project in the "${discipline}" field. The output must be directly and specifically about planning for "${name}". For example, if the name is "Annual Charity Gala" and the discipline is "Event Management", the proposal must be about planning a charity gala, not generic event concepts. ${subcontractorInstruction} Develop a well-structured proposal with clear headings for: "Executive Summary", "Project Vision", "Scope (In-Scope & Out-of-Scope)", "High-Level Objectives", and "Key Success Metrics". Be thorough and clear. You must use professional, industry-standard terminology specific to the '${discipline}' field.`;
+        return `You are a project manager creating a Concept Proposal for a project named "${name}", which is a project in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} The output must be directly and specifically about planning for "${name}". For example, if the name is "Annual Charity Gala" and the discipline is "Event Management", the proposal must be about planning a charity gala, not generic event concepts. ${subcontractorInstruction} Develop a well-structured proposal with clear headings for: "Executive Summary", "Project Vision", "Scope (In-Scope & Out-of-Scope)", "High-Level Objectives", and "Key Success Metrics". Be thorough and clear. You must use professional, industry-standard terminology specific to the '${discipline}' field.`;
     },
-    phase2: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase2: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The list must distinguish between the internal team roles required to manage the project and the roles expected to be provided by the subcontractor. Clearly label the subcontractor resources.' : '';
+        const teamSizeInstruction = TEAM_SIZE_INSTRUCTIONS.roles[teamSize];
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `List the absolute minimum roles and tools for project "${name}" in the "${discipline}" field. ${subcontractorInstruction} All listed roles and tools must be real and standard for the discipline; do not invent names. Use professional jargon and abbreviations. Use a bulleted list. Be cryptic. All terminology must be specific to the '${discipline}' field.`;
+            return `List the absolute minimum roles and tools for project "${name}" in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All listed roles and tools must be real and standard for the discipline; do not invent names. Use professional jargon and abbreviations. Use a bulleted list. Be cryptic. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `For a project named "${name}", create a comprehensive list of the MINIMUM number of roles required. Combine skills that are commonly found in a single person within the "${discipline}" field. For each role, list the key skills needed. ${subcontractorInstruction} Also list required external partners, software, and hardware tooling in separate bulleted lists. IMPORTANT: The names for all listed resources (skills, roles, software, hardware, partners) must be standard and commonly used in the '${discipline}' industry. Do not invent names. For skills, use names from common job descriptions. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `For a project named "${name}", create a comprehensive list of roles required. ${teamSizeInstruction} ${complexityInstruction} For each role, list the key skills needed. ${subcontractorInstruction} Also list required external partners, software, and hardware tooling in separate bulleted lists. IMPORTANT: The names for all listed resources (skills, roles, software, hardware, partners) must be standard and commonly used in the '${discipline}' industry. Do not invent names. For skills, use names from common job descriptions. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase3: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase3: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The analysis must consider risks and opportunities related to using a subcontractor, such as communication overhead (weakness/threat) or specialized expertise (strength/opportunity).' : '';
+        const teamSizeInstruction = `Consider the implications of a ${teamSize}-sized team in your analysis (e.g., a small team might have skill gaps as a weakness, a large team might have communication overhead).`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Brief, cryptic SWOT analysis for "${name}" using professional jargon for the "${discipline}" field. ${subcontractorInstruction} Use bullet points with minimal text. All terminology must be specific to the '${discipline}' field.`;
+            return `Brief, cryptic SWOT analysis for "${name}" using professional jargon for the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Use bullet points with minimal text. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `Based on the project "${name}" and its concept proposal:\n\n${context}\n\nPerform a SWOT analysis (Strengths, Weaknesses, Opportunities, Threats). ${subcontractorInstruction} Also, outline a strategy for gathering support and securing buy-in from key stakeholders. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `Based on the project "${name}" and its concept proposal:\n\n${context}\n\nPerform a SWOT analysis (Strengths, Weaknesses, Opportunities, Threats). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Also, outline a strategy for gathering support and securing buy-in from key stakeholders. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase4: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase4: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The agenda must include specific items for aligning with the subcontractor, such as reviewing the communication plan, points of contact, and deliverable acceptance criteria.' : '';
+        const teamSizeInstruction = `The project team size is ${teamSize}. Tailor the agenda's formality and detail accordingly (e.g., more formal and detailed for a large team).`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Generate a minimal, bullet-point-only kickoff agenda for "${name}". ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
+            return `Generate a minimal, bullet-point-only kickoff agenda for "${name}". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `Create a detailed agenda and briefing document for a project kickoff review for "${name}". ${subcontractorInstruction} The document should aim to align the team, confirm project objectives, and set clear expectations for deliverables and communication. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `Create a detailed agenda and briefing document for a project kickoff review for "${name}". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The document should aim to align the team, confirm project objectives, and set clear expectations for deliverables and communication. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase5: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase5: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The SOW must be written from the perspective of the internal company managing the project. It must clearly define the scope of work to be performed by the subcontractor versus the work and responsibilities retained by the internal team. Use separate sections or clear headings to make this distinction.' : '';
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
+        const teamSizeInstruction = TEAM_SIZE_INSTRUCTIONS.complexity[teamSize] + " Reflect this scale in the detail and scope of the deliverables.";
         if (mode === 'minimal') {
-            return `Based on the project "${name}", draft a minimal SOW. Use only section headings and one-line bullet points. ${subcontractorInstruction} Be cryptic. All terminology must be specific to the '${discipline}' field.`;
+            return `Based on the project "${name}", draft a minimal SOW. ${teamSizeInstruction} ${complexityInstruction} Use only section headings and one-line bullet points. ${subcontractorInstruction} Be cryptic. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `Based on the project "${name}" and its preceding documentation:\n\n${context}\n\nDraft an Initial Plan and a Statement of Work (SOW). ${subcontractorInstruction} The SOW must be detailed and include the following sections under clear headings: "Scope of Work", "Deliverables", "Acceptance Criteria", "Project Assumptions", "Key Constraints", and "Exclusions (Out of Scope)". You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `Based on the project "${name}" and its preceding documentation:\n\n${context}\n\nDraft an Initial Plan and a Statement of Work (SOW). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The SOW must be detailed and include the following sections under clear headings: "Scope of Work", "Deliverables", "Acceptance Criteria", "Project Assumptions", "Key Constraints", and "Exclusions (Out of Scope)". You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase6: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase6: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include items to confirm the subcontractor\'s understanding and agreement with the SOW.' : '';
+        const teamSizeInstruction = `The team size is ${teamSize}, so the review's formality should match (e.g., a simple check for a small team, a multi-stakeholder sign-off process for a large team).`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Generate a 3-point checklist for a Preliminary Design Review for "${name}". Title it "Preliminary Review". ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
+            return `Generate a 3-point checklist for a Preliminary Design Review for "${name}". Title it "Preliminary Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `For the project "${name}", generate a comprehensive checklist for a Preliminary Design Review. ${subcontractorInstruction} The checklist should ensure the Statement of Work (SOW) is complete, realistic, and has been signed off by all key stakeholders before detailed technical planning begins. This checklist document itself will be titled "Preliminary Review". You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `For the project "${name}", generate a comprehensive checklist for a Preliminary Design Review. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The checklist should ensure the Statement of Work (SOW) is complete, realistic, and has been signed off by all key stakeholders before detailed technical planning begins. This checklist document itself will be titled "Preliminary Review". You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase7: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
+    phase7: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const wbsInstruction = complexity === 'easy' ? TEAM_SIZE_INSTRUCTIONS.wbs.small : complexity === 'complex' ? TEAM_SIZE_INSTRUCTIONS.wbs.large : TEAM_SIZE_INSTRUCTIONS.wbs.medium;
+        const teamSizeInstruction = wbsInstruction;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
+
         const subcontractorInstruction = scope === 'subcontracted'
             ? `
 This is a subcontracted project. The task list MUST include a "Subcontractor" column. Mark "Yes" in this column for tasks to be performed by the subcontractor, and "No" for internal tasks. The plan must include tasks for managing the subcontractor (e.g., "Review Subcontractor Deliverable").`
@@ -393,6 +457,8 @@ This is a subcontracted project. The task list MUST include a "Subcontractor" co
 | Deploy | DevOps Engineer | 2024-08-07 | 2024-08-07 | Review | Sprint 1 |`;
 
           return `Generate a minimal project plan for "${name}" in strict Markdown.
+${teamSizeInstruction}
+${complexityInstruction}
 - WBS should be 2 levels deep, max.
 - Task list should have 5 tasks, max. Use short names. It MUST include at least one sprint and one 'Review' task. Assign a relevant role to each task.
 - Milestones list should have 2 milestones, max.
@@ -417,7 +483,7 @@ ${subcontractorMinimalExample}
 NOW, GENERATE THE MINIMAL PLAN FOR THE "${name}" PROJECT.
 `;
         }
-        return `Act as an expert project manager for a project named "${name}" in the "${discipline}" field. Based on the following Statement of Work (SOW) and Resources List:\n\n${context}\n\nGenerate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). CRITICAL: Assign a relevant role from the 'Resources & Skills List' to each task in the 'Role' column. The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. The "Dependencies" column must contain the exact "Task Name" of any preceding tasks, or be empty if there are none. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
+        return `Act as an expert project manager for a project named "${name}" in the "${discipline}" field. Based on the following Statement of Work (SOW) and Resources List:\n\n${context}\n\n${teamSizeInstruction}\n${complexityInstruction}\n\nGenerate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). CRITICAL: Assign a relevant role from the 'Resources & Skills List' to each task in the 'Role' column. The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. The "Dependencies" column must contain the exact "Task Name" of any preceding tasks, or be empty if there are none. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
 
 Here is an example of the required format:
 ---
@@ -460,23 +526,50 @@ Create a detailed task list in a Markdown table with the columns: ${subcontracto
 Create a list of key milestones in a Markdown table with the columns: "Milestone Name", "Date (YYYY-MM-DD)".
 `;
     },
-    phase8: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
-        const subcontractorInstruction = scope === 'subcontracted' ? 'These review documents must include checkpoints specifically for subcontractor deliverables and ensuring their work aligns with the overall project goals.' : '';
+    phase8_sprintRequirements: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const subcontractorInstruction = scope === 'subcontracted' ? 'These requirements must clearly distinguish between tasks for the internal team and deliverables expected from the subcontractor.' : '';
+        const teamSizeInstruction = `The project team size is ${teamSize}. Scale the detail of requirements accordingly.`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Generate three minimal checklists for "${name}": "Sprint Requirements", "Sprint Plan Review", and "Critical Review". Use only 2-3 bullet points for each. Use clear headings for each document. The Critical Review must include a check for team assignments. ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
+            return `Generate a minimal, bullet-point list of sprint requirements for project "${name}". This could also be called a "User Story Backlog". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Use 2-3 bullet points total. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `For the project "${name}", generate the content for the following three documents in order, using clear headings for each:
-1.  **Sprint Requirements:** A detailed set of requirements and task lists for all planned sprints.
-2.  **Sprint Plan Review:** A checklist for conducting a peer review of each sprint plan. This is a formal review document.
-3.  **Critical Review:** A final, high-level checklist to ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. This is a formal review document. CRITICAL: This checklist must include a bullet point to "- **Team Assignments:** Confirm all project roles have been assigned a team member in the 'Project Tracking > Team' view."
-${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field throughout all three documents.`;
+        return `For the project "${name}", generate a detailed set of requirements and task lists for all planned sprints. This document is often titled "Sprint Requirements" or "User Story Backlog". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
-    phase9: (name, discipline, context, mode = 'fullscale', scope = 'internal') => {
-        const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include a final sign-off from the subcontractor for their portion of the work.' : '';
+    phase8_sprintPlanReview: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include items to verify subcontractor tasks are properly defined and aligned with the SOW.' : '';
+        const teamSizeInstruction = `The project team size is ${teamSize}. Scale the rigor of the review checklist accordingly.`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `Generate a 3-point Deployment Readiness checklist for "${name}" and a concluding "init tracking" statement. ${subcontractorInstruction} This is a formal review document. All terminology must be specific to the '${discipline}' field.`;
+            return `Generate a minimal, 3-point checklist for a "Sprint Plan Review" for project "${name}". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `For the project "${name}", generate a Deployment Readiness Review checklist. ${subcontractorInstruction} This document should confirm that all development is complete, testing has been passed, and all stakeholders have approved the launch. Finally, add a concluding statement that the project tracking tool should now be initialized with all data from the planning phases, marking the official start of the execution phase. This is a formal review document. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `For the project "${name}", generate a checklist for conducting a peer review of each sprint plan. This is a formal review document titled "Sprint Plan Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+    },
+    phase8_criticalReview: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include a final alignment check with the subcontractor before execution begins.' : '';
+        const teamSizeInstruction = `The project team size is ${teamSize}. Scale the rigor of the review checklist accordingly.`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
+        if (mode === 'minimal') {
+            return `Generate a minimal, 3-point checklist for a "Critical Review" for project "${name}". The checklist must include a check for team assignments. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
+        }
+        return `For the project "${name}", generate a final, high-level checklist titled "Critical Review". This formal review document should ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} CRITICAL: This checklist must include a bullet point to "- **Team Assignments:** Confirm all project roles have been assigned a team member in the 'Project Tracking > Team' view." You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+    },
+    phase8_generic: (docTitle, name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const subcontractorInstruction = scope === 'subcontracted' ? `Ensure the content reflects the subcontracted nature of the project where relevant.` : '';
+        const teamSizeInstruction = `The project team size is ${teamSize}. Scale the detail and complexity of the document's content to match.`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
+        if (mode === 'minimal') {
+            return `Generate a minimal, cryptic, one-paragraph summary for the document titled "${docTitle}" for project "${name}". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Use professional jargon specific to the '${discipline}' field.`;
+        }
+        return `For the project "${name}", generate the content for a document titled "${docTitle}". This document is part of Phase 8: Sprint & Critical Design Planning. Base the content on the previously established project context. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+    },
+    phase9: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include a final sign-off from the subcontractor for their portion of the work.' : '';
+        const teamSizeInstruction = `The team size is ${teamSize}, so the checklist should reflect the appropriate number of stakeholders for sign-off.`;
+        const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
+        if (mode === 'minimal') {
+            return `Generate a 3-point Deployment Readiness checklist for "${name}" and a concluding "init tracking" statement. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} This is a formal review document. All terminology must be specific to the '${discipline}' field.`;
+        }
+        return `For the project "${name}", generate a Deployment Readiness Review checklist. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} This document should confirm that all development is complete, testing has been passed, and all stakeholders have approved the launch. Finally, add a concluding statement that the project tracking tool should now be initialized with all data from the planning phases, marking the official start of the execution phase. This is a formal review document. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     changeDeploymentPlan: (projectName, discipline, changeRequest, tasks, documents) => `
 As an expert project manager for the project "${projectName}" in the "${discipline}" field, a change request has been submitted.

@@ -15,11 +15,12 @@ interface PhaseCardProps {
     onRemoveAttachment: (phaseId: string, fileName: string) => void;
     status: string;
     isLoading: boolean;
+    loadingStep: 'generating' | 'compacting' | null;
     isOpen: boolean;
     onToggleOpen: () => void;
 }
 
-export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData, attachments, updatePhaseData, isLocked, lockReason, onGenerate, onComplete, onAttachFile, onRemoveAttachment, status, isLoading, isOpen, onToggleOpen }) => {
+export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData, attachments, updatePhaseData, isLocked, lockReason, onGenerate, onComplete, onAttachFile, onRemoveAttachment, status, isLoading, loadingStep, isOpen, onToggleOpen }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedContent, setEditedContent] = useState(phaseData || '');
     const descriptionFileInputRef = useRef<HTMLInputElement>(null);
@@ -95,7 +96,11 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                     {isLoading ? (
                         <div className="status-message loading" role="status">
                             <div className="spinner"></div>
-                            <p>Generating content...</p>
+                            <p>
+                                {loadingStep === 'compacting'
+                                    ? 'Compacting content for AI context...'
+                                    : 'Generating content...'}
+                            </p>
                         </div>
                     ) : isEditing ? (
                          <textarea 

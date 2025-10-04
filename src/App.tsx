@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
@@ -31,7 +30,8 @@ const App = () => {
         localStorage.setItem('hmap-gemini-key', key);
       }
       return true;
-    } catch (error) {
+    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type.
+    } catch (error: any) {
       console.error(`Failed to initialize GoogleGenAI from ${source}:`, error);
       return false;
     }
@@ -69,7 +69,8 @@ const App = () => {
           }
       }
 
-    } catch (error) {
+    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type, resolving "Cannot find name 'error'".
+    } catch (error: any) {
         console.error("Failed to load data from localStorage:", error);
         setProjects([]);
     }
@@ -90,12 +91,13 @@ const App = () => {
   const saveProjectsToStorage = (updatedProjects) => {
     try {
       localStorage.setItem('hmap-projects', JSON.stringify(updatedProjects));
-    } catch (error) {
+    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type.
+    } catch (error: any) {
       console.error("Failed to save projects to localStorage:", error);
     }
   };
 
-  const handleCreateProject = ({ name, template, mode, scope }) => {
+  const handleCreateProject = ({ name, template, mode, scope, teamSize, complexity }) => {
     const today = new Date();
     const endDate = new Date(today);
     endDate.setDate(today.getDate() + 44); // Default end date, will be updated by plan parsing
@@ -105,6 +107,9 @@ const App = () => {
         name,
         mode, // 'fullscale' or 'minimal'
         scope, // 'internal' or 'subcontracted'
+        generationMode: 'manual', // 'manual' or 'automatic'
+        teamSize,
+        complexity: complexity || 'typical',
         discipline: template.discipline,
         phasesData: {},
         team: [],
@@ -127,6 +132,7 @@ const App = () => {
     // Set a session flag to indicate this is a new project for smart navigation.
     sessionStorage.setItem('hmap-new-project-id', newProject.id);
     handleSelectProject(newProject);
+    handleModalOpen(false); // Close the modal after creation
     logAction('Create Project', newProject.name, { newProject, allProjects: updatedProjects });
   };
   

@@ -1,3 +1,5 @@
+
+
 export const GlobalStyles = `
   :root {
     --background-color: #0a0a1a;
@@ -19,10 +21,68 @@ export const GlobalStyles = `
     --task-done-color: #00ffaa;
   }
 
+  /* Custom MS Windows-style Scrollbar */
+  ::-webkit-scrollbar {
+    width: 17px;
+    height: 17px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--background-color);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border: 1px solid var(--background-color);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #666;
+  }
+  
+  ::-webkit-scrollbar-corner {
+    background-color: var(--background-color);
+  }
+
+  ::-webkit-scrollbar-button:single-button {
+    background-color: var(--card-background);
+    display: block;
+    border-style: solid;
+    border-color: var(--border-color);
+    border-width: 1px;
+    background-size: 10px;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 17px;
+    width: 17px;
+  }
+  
+  ::-webkit-scrollbar-button:single-button:hover {
+    background-color: #2a2a3a;
+  }
+
+  ::-webkit-scrollbar-button:single-button:vertical:decrement {
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0iJTIzZTBjMGUwIj48cGF0aCBkPSJNNiAwTDYgMEwzIDZMMTIgNkw5IDB6IiB0cmFuc2Zvcm09InJvdGF0ZSgxODAgNiA0LjUpIHNjYWxlKDAuOCkiLz48L3N2Zz4=');
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0iJTIzZTBjMGUwIj48cGF0aCBkPSJNNiAwbDYgNkgweiIvPjwvc3ZnPg==');
+  }
+
+  ::-webkit-scrollbar-button:single-button:vertical:increment {
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0iJTIzZTBjMGUwIj48cGF0aCBkPSJNNiAxMkwwIDZoMTJ6Ii8+PC9zdmc+');
+  }
+  /* End Custom Scrollbar */
+
+
   * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+
+  html {
+    overflow-y: scroll;
+    /* For Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #555 var(--background-color);
   }
 
   html, body {
@@ -211,6 +271,9 @@ export const GlobalStyles = `
     width: 90%;
     max-width: 500px;
     box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
   }
 
   .modal-content h2 {
@@ -274,6 +337,7 @@ export const GlobalStyles = `
     display: flex;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 2rem;
+    flex-shrink: 0;
   }
   .modal-tabs button {
     padding: 0.75rem 1.5rem;
@@ -295,9 +359,21 @@ export const GlobalStyles = `
   }
 
   .project-list-section, .create-project-section {
-    margin-bottom: 0;
-    border-top: none;
-    padding-top: 0;
+    flex: 1; /* Make content areas flexible */
+    min-height: 0; /* Crucial for allowing flex children to shrink and scroll */
+    display: flex;
+    flex-direction: column;
+  }
+
+  .project-list-section {
+    overflow-y: auto;
+    padding-right: 1rem;
+  }
+
+  .create-project-section form {
+    flex: 1; /* Make form grow to fill space */
+    overflow-y: auto; /* Make form scrollable */
+    padding-right: 1rem; /* Add space for scrollbar */
   }
   
   .create-project-section h3 {
@@ -309,10 +385,6 @@ export const GlobalStyles = `
   
   .project-selection-list {
     list-style: none;
-    max-height: 300px;
-    overflow-y: auto;
-    padding-right: 1rem;
-    margin-right: -1rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -386,9 +458,6 @@ export const GlobalStyles = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    max-height: 250px;
-    overflow-y: auto;
-    padding-right: 0.5rem;
   }
   
   .template-card {
@@ -785,6 +854,8 @@ export const GlobalStyles = `
     color: var(--primary-text);
     line-height: 1.7;
     margin-bottom: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
   }
   
   .display-content h1,
