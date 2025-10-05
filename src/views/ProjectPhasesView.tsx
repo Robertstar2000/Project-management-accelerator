@@ -39,29 +39,20 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
             }
         }
 
-        // Also check for specific document title requirements for this phase.
-        const docPhaseId = `phase${doc.phase}`;
-        const requiredDocTitles = PHASE_DOCUMENT_REQUIREMENTS[docPhaseId];
-        if (requiredDocTitles) {
-            const unapprovedDocs = requiredDocTitles.filter(docTitle => {
-                // Don't check the document against itself
-                if (docTitle === doc.title) return false; 
-                const prereqDoc = documents.find(d => d.title === docTitle);
-                return !prereqDoc || prereqDoc.status !== 'Approved';
-            });
-
-            if (unapprovedDocs.length > 0) {
-                const reason = `Requires approval for: ${unapprovedDocs.join(', ')}.`;
-                return { isLocked: true, lockReason: reason };
-            }
-        }
-
         return { isLocked: false, lockReason: null };
     };
 
     const isPhase1Complete = documents
         .filter(d => d.phase === 1)
         .every(d => d.status === 'Approved');
+
+    let lastPhase = -1;
+
+    // This wrapper ensures PhaseCard only needs to care about passing its content,
+    // not about the other options `handleGenerateContent` might take.
+    const handleManualGenerate = (docId, currentContent) => {
+        handleGenerateContent(docId, { currentContent });
+    };
 
     return (
         <div>
@@ -103,32 +94,43 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
 
             {projectPhases.map((phase, index) => {
                 const doc = documents.find(d => d.id === phase.id);
+                if (!doc) return null;
+
                 const { isLocked, lockReason } = getLockStatus(phase.id);
                 // Status for the chip: 'locked', 'completed' (if approved), or 'todo' (if working/rejected/etc.)
                 const status = isLocked ? 'locked' : (doc?.status === 'Approved' ? 'completed' : 'todo');
                 const isLoading = loadingPhase?.docId === phase.id;
                 const loadingStep = isLoading ? loadingPhase.step : null;
 
+                const showPhaseHeader = doc.phase !== lastPhase;
+                lastPhase = doc.phase;
+
                 return (
-                    <PhaseCard
-                        key={phase.id}
-                        phase={phase}
-                        project={project}
-                        phaseData={phasesData[phase.id]?.content}
-                        attachments={phasesData[phase.id]?.attachments || []}
-                        updatePhaseData={handleUpdatePhaseData}
-                        isLocked={isLocked}
-                        lockReason={lockReason}
-                        onGenerate={handleGenerateContent}
-                        onComplete={handleCompletePhase}
-                        onAttachFile={handleAttachFile}
-                        onRemoveAttachment={handleRemoveAttachment}
-                        status={status}
-                        isLoading={isLoading}
-                        loadingStep={loadingStep}
-                        isOpen={openPhases.includes(phase.id)}
-                        onToggleOpen={() => togglePhaseOpen(phase.id)}
-                    />
+                    <div key={phase.id}>
+                        {showPhaseHeader && (
+                             <h2 className="subsection-title" style={{ marginTop: '3rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+                                Phase {doc.phase}
+                            </h2>
+                        )}
+                        <PhaseCard
+                            phase={phase}
+                            project={project}
+                            phaseData={phasesData[phase.id]?.content}
+                            attachments={phasesData[phase.id]?.attachments || []}
+                            updatePhaseData={handleUpdatePhaseData}
+                            isLocked={isLocked}
+                            lockReason={lockReason}
+                            onGenerate={handleManualGenerate}
+                            onComplete={handleCompletePhase}
+                            onAttachFile={handleAttachFile}
+                            onRemoveAttachment={handleRemoveAttachment}
+                            status={status}
+                            isLoading={isLoading}
+                            loadingStep={loadingStep}
+                            isOpen={openPhases.includes(phase.id)}
+                            onToggleOpen={() => togglePhaseOpen(phase.id)}
+                        />
+                    </div>
                 );
             })}
         </div>

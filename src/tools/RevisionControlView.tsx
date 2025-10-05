@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';
@@ -25,19 +24,17 @@ const applyImpact = (baseline, impact) => {
 };
 
 // Safety limits for API payload
-const MAX_PAYLOAD_CHARS = 900000; // Be conservative to avoid 1MB limit.
-const MAX_OUTPUT_TOKENS_ESTIMATE_CHARS = 8000 * 4; // Reserve ~32k chars for output
+const MAX_PAYLOAD_CHARS = 30000; // Drastically reduced to prevent potential 500 errors from large requests.
 
 const truncatePrompt = (prompt: string): string => {
-    const totalLimit = MAX_PAYLOAD_CHARS - MAX_OUTPUT_TOKENS_ESTIMATE_CHARS;
-    if (prompt.length <= totalLimit) {
+    if (prompt.length <= MAX_PAYLOAD_CHARS) {
         return prompt;
     }
 
     console.warn('Prompt is too large, truncating from the end to fit payload limits.');
-    logAction('Truncate Prompt', 'Payload Management', { originalLength: prompt.length, newLength: totalLimit });
+    logAction('Truncate Prompt', 'Payload Management', { originalLength: prompt.length, newLength: MAX_PAYLOAD_CHARS });
     
-    return prompt.substring(0, totalLimit) + "\n...[PROMPT TRUNCATED DUE TO PAYLOAD SIZE]...";
+    return prompt.substring(0, MAX_PAYLOAD_CHARS) + "\n...[PROMPT TRUNCATED DUE TO PAYLOAD SIZE]...";
 };
 
 export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
@@ -83,10 +80,6 @@ export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
-                config: {
-                    maxOutputTokens: 7900,
-                    thinkingConfig: { thinkingBudget: 1000 },
-                }
             });
 
             setDeploymentPlan(response.text);

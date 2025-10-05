@@ -128,8 +128,6 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                 config: { 
                     responseMimeType: "application/json", 
                     responseSchema: schema,
-                    maxOutputTokens: 7900,
-                    thinkingConfig: { thinkingBudget: 1000 },
                 },
             });
             

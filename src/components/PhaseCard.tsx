@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { parseMarkdown } from '../utils/markdownParser';
 
 interface PhaseCardProps {
-    phase: { id: string; title: string; description: string; };
+    phase: { id: string; title: string; description: string; originalPhaseId: string; };
     project: any;
     phaseData: string | undefined;
     attachments: Array<{ name: string, data: string }>;
     updatePhaseData: (phaseId: string, content: string) => void;
     isLocked: boolean;
     lockReason: string | null;
-    onGenerate: (phaseId: string) => void;
+    onGenerate: (phaseId: string, currentContent: string) => void;
     onComplete: (phaseId: string) => void;
     onAttachFile: (phaseId: string, fileData: { name: string, data: string }) => void;
     onRemoveAttachment: (phaseId: string, fileName: string) => void;
@@ -75,8 +75,8 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
         if (event.target) event.target.value = ''; // Reset input
     };
 
-    const placeholderText = phase.id === 'phase1' 
-        ? 'Enter detailed description of project for Concept Proposal...' 
+    const placeholderText = phase.originalPhaseId === 'phase1'
+        ? "Enter or paste here a list of the project expectations, then push Generate Content to expand this into a full Concept Proposal.  You may then further edit  and attach supporting files to further align with your needs. Mark as complete to move to the next document."
         : `Content for ${phase.title} will appear here...`;
 
     return (
@@ -121,10 +121,10 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                     )}
                     
                     <div className="phase-actions">
-                        <button className="button" onClick={() => onGenerate(phase.id)} disabled={isLoading || status === 'completed'}>
+                        <button className="button" onClick={() => onGenerate(phase.id, editedContent)} disabled={isLoading || status === 'completed'}>
                             {phaseData ? 'Regenerate' : 'Generate'} Content
                         </button>
-                        {phase.id === 'phase1' && (
+                        {phase.originalPhaseId === 'phase1' && (
                             <>
                                 <button className="button" onClick={() => descriptionFileInputRef.current?.click()} disabled={isLoading || status === 'completed'}>
                                     Upload Description (.txt)
