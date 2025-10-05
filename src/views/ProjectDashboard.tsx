@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { PHASES, PROMPTS, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
@@ -33,31 +34,32 @@ const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
         return '';
     }
 
-    // For all subsequent phases, find all approved documents from Phase 1.
-    const phase1Docs = allDocuments.filter(doc =>
-        doc.phase === 1 && doc.status === 'Approved'
+    // For all other phases, specifically find the approved "Concept Proposal".
+    const conceptProposalDoc = allDocuments.find(doc =>
+        doc.phase === 1 &&
+        doc.title.toLowerCase().includes('concept proposal') &&
+        doc.status === 'Approved'
     );
 
-    if (phase1Docs.length === 0) {
-        // This is a valid state if the user is trying to generate a Phase 2 doc before approving Phase 1.
-        // The UI lock should prevent this, but we handle it defensively.
-        console.warn("Context generation: No Phase 1 documents are approved yet.");
-        return "CRITICAL: The context from Phase 1 is missing because no Phase 1 documents have been approved. Generate the document based on its title and the project parameters alone.";
+    if (!conceptProposalDoc) {
+        console.warn("Context generation: 'Concept Proposal' is not approved yet.");
+        return "CRITICAL: The context from the 'Concept Proposal' is missing because it has not been approved. Generate the document based on its title and the project parameters alone.";
     }
 
-    // Join the compacted content of all approved Phase 1 documents.
-    const contextStrings = phase1Docs.map(d => {
-        const phaseInfo = allPhasesData[d.id];
-        // Prioritize compacted content for efficiency, falling back to full content if compaction failed or is pending.
-        const content = phaseInfo?.compactedContent || phaseInfo?.content || `Content for ${d.title} is not available.`;
-        return `--- High-Level Project Context from "${d.title}" ---\n${content}`;
-    });
+    const phaseInfo = allPhasesData[conceptProposalDoc.id];
+    // Prioritize compacted content for efficiency.
+    const content = phaseInfo?.compactedContent || phaseInfo?.content;
+    
+    if (!content) {
+         return `Content for ${conceptProposalDoc.title} is not available.`;
+    }
 
-    return contextStrings.join('\n\n');
+    return `--- High-Level Project Context from "${conceptProposalDoc.title}" ---\n${content}`;
 };
 
+
 // Safety limits for API payload
-const MAX_PAYLOAD_CHARS = 30000; // Drastically reduced to prevent potential 500 errors from large requests.
+const MAX_PAYLOAD_CHARS = 20000; // Drastically reduced to prevent potential 500 errors from large requests.
 
 const truncatePrompt = (prompt: string): string => {
     if (prompt.length <= MAX_PAYLOAD_CHARS) {
@@ -334,59 +336,53 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         // Step 1: Generate human-readable content
         setLoadingPhase({ docId, step: 'generating' });
         try {
-            let context;
-            if (docToGenerate.phase === 1) {
-                // If content was passed directly from the card, use it. Otherwise, use the saved content.
-                const contentToUse = currentContent !== null ? currentContent : (projectData.phasesData?.[docId]?.content || '');
-    
-                // If new content was passed, we must save it to the state so it persists.
-                if (currentContent !== null && contentToUse !== (projectData.phasesData?.[docId]?.content)) {
-                    handleUpdatePhaseData(docId, contentToUse, null); // Invalidate compacted content
-                }
-                context = contentToUse;
-            } else {
-                // For all other phases, get context from previous approved documents.
-                context = getRelevantContext(docToGenerate, projectData.documents, projectData.phasesData);
-            }
-            
             const { name, discipline, mode, scope, teamSize } = projectData;
             const docTitle = docToGenerate.title;
             const titleLowerCase = docTitle.toLowerCase();
             const phase = docToGenerate.phase;
-
             let promptText;
 
-            // Specific prompts are matched based on document titles, not phase numbers.
+            // Create a separate, clear path for the Concept Proposal.
+            // For this specific document, the primary input ("context") is the user's raw text entry.
             if (titleLowerCase.includes('concept proposal')) {
-                promptText = PROMPTS.phase1(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('resources & skills list')) {
-                promptText = PROMPTS.phase2(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('swot analysis')) {
-                promptText = PROMPTS.phase3(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('kickoff briefing')) {
-                promptText = PROMPTS.phase4(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('statement of work')) {
-                promptText = PROMPTS.phase5(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('preliminary review')) {
-                promptText = PROMPTS.phase6(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (titleLowerCase.includes('detailed plans') || titleLowerCase.includes('project timeline')) {
-                promptText = PROMPTS.phase7(name, discipline, context, mode, scope, teamSize, complexity);
-            } else if (phase === 8) {
-                // Phase 8 retains special logic for its common document types
-                if (titleLowerCase.includes('sprint requirements') || titleLowerCase.includes('user story backlog')) {
-                    promptText = PROMPTS.phase8_sprintRequirements(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('sprint plan review')) {
-                    promptText = PROMPTS.phase8_sprintPlanReview(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('critical review')) {
-                    promptText = PROMPTS.phase8_criticalReview(name, discipline, context, mode, scope, teamSize, complexity);
+                const userInput = currentContent !== null ? currentContent : (projectData.phasesData?.[docId]?.content || '');
+
+                // Persist the user's input if it was passed fresh from the card's state.
+                if (currentContent !== null && userInput !== (projectData.phasesData?.[docId]?.content)) {
+                    handleUpdatePhaseData(docId, userInput, null); // Save the input and invalidate any old compacted content.
+                }
+                
+                promptText = PROMPTS.phase1(name, discipline, userInput, mode, scope, teamSize, complexity);
+
+            } else {
+                // For ALL other documents, derive context from previously approved documents using the standard method.
+                const context = getRelevantContext(docToGenerate, projectData.documents, projectData.phasesData);
+
+                if (titleLowerCase.includes('resources & skills list')) {
+                    promptText = PROMPTS.phase2(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (titleLowerCase.includes('swot analysis')) {
+                    promptText = PROMPTS.phase3(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (titleLowerCase.includes('kickoff briefing')) {
+                    promptText = PROMPTS.phase4(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (titleLowerCase.includes('statement of work')) {
+                    promptText = PROMPTS.phase5(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (titleLowerCase.includes('preliminary review')) {
+                    promptText = PROMPTS.phase6(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (titleLowerCase.includes('detailed plans') || titleLowerCase.includes('project timeline')) {
+                    promptText = PROMPTS.phase7(name, discipline, context, mode, scope, teamSize, complexity);
+                } else if (phase === 8) {
+                    if (titleLowerCase.includes('sprint requirements') || titleLowerCase.includes('user story backlog')) {
+                        promptText = PROMPTS.phase8_sprintRequirements(name, discipline, context, mode, scope, teamSize, complexity);
+                    } else if (titleLowerCase.includes('sprint plan review')) {
+                        promptText = PROMPTS.phase8_sprintPlanReview(name, discipline, context, mode, scope, teamSize, complexity);
+                    } else if (titleLowerCase.includes('critical review')) {
+                        promptText = PROMPTS.phase8_criticalReview(name, discipline, context, mode, scope, teamSize, complexity);
+                    } else {
+                        promptText = PROMPTS.phase8_generic(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
+                    }
                 } else {
-                    // Generic phase 8 for other docs in this phase
                     promptText = PROMPTS.phase8_generic(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
                 }
-            } else {
-                 // Generic fallback for any other document in any other phase.
-                 // This is crucial for custom-generated document lists.
-                 promptText = PROMPTS.phase8_generic(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
             }
             
             const finalPrompt = truncatePrompt(promptText);

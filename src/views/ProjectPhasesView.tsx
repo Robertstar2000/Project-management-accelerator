@@ -33,7 +33,8 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
         const prevPhaseNumber = doc.phase - 1;
         if (prevPhaseNumber > 0) {
             const prevPhaseDocs = documents.filter(d => d.phase === prevPhaseNumber);
-            const isPrevPhaseComplete = prevPhaseDocs.length > 0 && prevPhaseDocs.every(d => d.status === 'Approved');
+            // An empty array returns true for .every(), correctly treating an empty phase as "complete".
+            const isPrevPhaseComplete = prevPhaseDocs.every(d => d.status === 'Approved');
             if (!isPrevPhaseComplete) {
                 return { isLocked: true, lockReason: `Requires all documents in Phase ${prevPhaseNumber} to be approved.` };
             }

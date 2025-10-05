@@ -1,5 +1,6 @@
 
 
+
 export const TEMPLATES = [
   {
     id: 'software-dev',
@@ -423,31 +424,15 @@ This is a subcontracted project. The task list MUST include a "Subcontractor" co
 `## Tasks
 | Task Name | Role | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint | Subcontractor |
 |---|---|---|---|---|---|---|
-| Team Onboarding | Project Manager | 2024-08-01 | 2024-08-02 | | Sprint 1 | No |
-| Subcontractor Kickoff | Project Manager | 2024-08-03 | 2024-08-03 | Team Onboarding | Sprint 1 | No |
-| Setup Development Environment | DevOps Engineer | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 | Yes |
-| API Design | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 | Yes |
-| Review Subcontractor API Design | Lead Engineer | 2024-08-11 | 2024-08-11 | API Design | Sprint 1 | No |
-| User Authentication | Backend Developer | 2024-08-12 | 2024-08-20 | Review Subcontractor API Design | Sprint 2 | Yes |
-| Profile Page UI | Frontend Developer | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 | Yes |
-| Sprint 2 Plan Review | Project Manager | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 | No |
-| Integration Testing | QA Engineer | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 | No |
-| Critical Design Review | Lead Engineer | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 | No |
-| Staging Deployment | DevOps Engineer | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 | No |` :
+| Subcontractor Kickoff | Project Manager | 2024-08-01 | 2024-08-01 | | Sprint 1 | No |
+| API Design | Backend Developer | 2024-08-02 | 2024-08-06 | Subcontractor Kickoff | Sprint 1 | Yes |
+| Review API | Lead Engineer | 2024-08-07 | 2024-08-07 | API Design | Sprint 1 | No |` :
 `## Tasks
 | Task Name | Role | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies | Sprint |
 |---|---|---|---|---|---|
 | Team Onboarding | Project Manager | 2024-08-01 | 2024-08-02 | | Sprint 1 |
-| Setup Development Environment | DevOps Engineer | 2024-08-03 | 2024-08-05 | Team Onboarding | Sprint 1 |
-| API Design | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
-| Database Schema | Backend Developer | 2024-08-06 | 2024-08-10 | Setup Development Environment | Sprint 1 |
-| Sprint 1 Plan Review | Lead Engineer | 2024-08-11 | 2024-08-11 | API Design, Database Schema | Sprint 1 |
-| User Authentication | Backend Developer | 2024-08-12 | 2024-08-20 | Sprint 1 Plan Review | Sprint 2 |
-| Profile Page UI | Frontend Developer | 2024-08-21 | 2024-08-28 | User Authentication | Sprint 2 |
-| Sprint 2 Plan Review | Lead Engineer | 2024-08-29 | 2024-08-29 | Profile Page UI | Sprint 2 |
-| Integration Testing | QA Engineer | 2024-08-30 | 2024-09-05 | Sprint 2 Plan Review | Sprint 3 |
-| Critical Design Review | Lead Engineer | 2024-09-06 | 2024-09-06 | Integration Testing | Sprint 3 |
-| Staging Deployment | DevOps Engineer | 2024-09-07 | 2024-09-08 | Critical Design Review | Sprint 3 |`;
+| API Design | Backend Developer | 2024-08-03 | 2024-08-08 | Team Onboarding | Sprint 1 |
+| Sprint 1 Review | Lead Engineer | 2024-08-09 | 2024-08-09 | API Design | Sprint 1 |`;
 
         if (mode === 'minimal') {
             const subcontractorMinimalInstruction = scope === 'subcontracted' ? `Include a "Subcontractor" column (Yes/No).` : '';
@@ -507,30 +492,20 @@ Generate the project plan using the following strict Markdown format. The projec
 Here is an example of the required format:
 ---
 ## WBS
-- 1.0 Project Initialization
-  - 1.1 Team Onboarding
-  - 1.2 Setup Development Environment
-- 2.0 Feature Development
-  - 2.1 API Design
-  - 2.2 Database Schema
-  - 2.3 User Authentication
-- 3.0 Testing & QA
-  - 3.1 Unit Testing
-  - 3.2 Integration Testing
-- 4.0 Deployment
-  - 4.1 Staging Deployment
-  - 4.2 Production Release
+- 1.0 Init
+  - 1.1 Setup
+- 2.0 Core Dev
+  - 2.1 API
+- 3.0 Deploy
+  - 3.1 Testing
 
 ${subcontractorExample}
 
 ## Milestones
 | Milestone Name | Date (YYYY-MM-DD) |
 |---|---|
-| Project Kickoff Complete | 2024-08-02 |
-| API Ready for Integration | 2024-08-10 |
-| Sprint 2 Complete | 2024-08-29 |
-| Feature Complete (Pre-Deployment) | 2024-09-06 |
-| Staging Deployed | 2024-09-08 |
+| Kickoff Complete | 2024-08-02 |
+| API Approved | 2024-08-09 |
 ---
 
 NOW, GENERATE THE PLAN FOR THE "${name}" PROJECT.

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';
@@ -24,7 +25,7 @@ const applyImpact = (baseline, impact) => {
 };
 
 // Safety limits for API payload
-const MAX_PAYLOAD_CHARS = 30000; // Drastically reduced to prevent potential 500 errors from large requests.
+const MAX_PAYLOAD_CHARS = 20000; // Drastically reduced to prevent potential 500 errors from large requests.
 
 const truncatePrompt = (prompt: string): string => {
     if (prompt.length <= MAX_PAYLOAD_CHARS) {
