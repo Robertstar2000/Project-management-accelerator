@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { PHASES, PROMPTS, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
@@ -28,33 +27,39 @@ const parseMarkdownTable = (tableString) => {
 };
 
 const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
-    // If we are generating for a phase 1 doc, there is no prior context.
-    // User input is handled separately in the calling function.
     if (docToGenerate.phase === 1) {
         return '';
     }
 
-    // For all other phases, specifically find the approved "Concept Proposal".
-    const conceptProposalDoc = allDocuments.find(doc =>
-        doc.phase === 1 &&
-        doc.title.toLowerCase().includes('concept proposal') &&
-        doc.status === 'Approved'
-    );
+    // Determine the processing order
+    const sortedDocuments = [...allDocuments].sort((a, b) => {
+        if (a.phase !== b.phase) return a.phase - b.phase;
+        return a.title.localeCompare(b.title);
+    });
 
-    if (!conceptProposalDoc) {
-        console.warn("Context generation: 'Concept Proposal' is not approved yet.");
-        return "CRITICAL: The context from the 'Concept Proposal' is missing because it has not been approved. Generate the document based on its title and the project parameters alone.";
+    const currentIndex = sortedDocuments.findIndex(d => d.id === docToGenerate.id);
+
+    // Get all previously approved documents in processing order
+    const approvedDocs = sortedDocuments
+        .slice(0, currentIndex)
+        .filter(doc => doc.status === 'Approved');
+
+    if (approvedDocs.length === 0) {
+        return "CRITICAL: No preceding documents have been approved. Generate this document based on its title and the project parameters alone.";
     }
 
-    const phaseInfo = allPhasesData[conceptProposalDoc.id];
-    // Prioritize compacted content for efficiency.
-    const content = phaseInfo?.compactedContent || phaseInfo?.content;
-    
-    if (!content) {
-         return `Content for ${conceptProposalDoc.title} is not available.`;
-    }
+    // Build context from all approved docs, starting with the most foundational
+    // and adding more detail from subsequent documents.
+    let context = '';
+    approvedDocs.forEach(doc => {
+        const phaseInfo = allPhasesData[doc.id];
+        const content = phaseInfo?.compactedContent || phaseInfo?.content;
+        if (content) {
+            context += `--- Context from "${doc.title}" ---\n${content}\n\n`;
+        }
+    });
 
-    return `--- High-Level Project Context from "${conceptProposalDoc.title}" ---\n${content}`;
+    return context.trim();
 };
 
 
@@ -249,48 +254,6 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         }
     }, [project]);
 
-    useEffect(() => {
-        // Only run auto-generation logic if the mode is 'automatic' and we're not already running it.
-        if (projectData.generationMode !== 'automatic' || isAutoGenerating) return;
-
-        const docsToGenerate = projectData.documents.filter(doc => doc.status !== 'Approved');
-        
-        // Find the first document that is not approved and is not locked.
-        const nextDocToProcess = docsToGenerate.find(doc => {
-             const prevPhaseNumber = doc.phase - 1;
-             if (prevPhaseNumber > 0) {
-                 const prevPhaseDocs = projectData.documents.filter(d => d.phase === prevPhaseNumber);
-                 return prevPhaseDocs.every(pd => pd.status === 'Approved');
-             }
-             return true; // Phase 1 docs are never locked by a previous phase.
-        });
-
-        if (nextDocToProcess) {
-            const processNextDoc = async () => {
-                setIsAutoGenerating(true);
-                // 1. Generate content for the document
-                const phaseIdForGeneration = projectPhases.find(p => p.docId === nextDocToProcess.id)?.id;
-                if (phaseIdForGeneration) {
-                    await handleGenerateContent(phaseIdForGeneration, { isAuto: true });
-                }
-                
-                // 2. Mark it as "Approved"
-                // The state update from handleGenerateContent might be async, so we use a timeout
-                // to allow the state to hopefully be updated before we complete it. A more robust
-                // solution might involve passing a callback to handleGenerateContent.
-                setTimeout(() => {
-                    handleCompletePhase(nextDocToProcess.id, true); // Mark as approved
-                    setIsAutoGenerating(false); // Allow the useEffect to pick up the next doc
-                }, 1000); // 1-second delay to allow state to settle.
-            };
-            processNextDoc();
-        } else {
-            // No more documents to process, turn off automatic mode.
-            handleSave({ generationMode: 'manual' });
-        }
-
-    }, [projectData, projectPhases, isAutoGenerating]); // Rerun when project data changes
-
     const handleUpdatePhaseData = (docId, content, compactedContent = undefined) => {
         handleSave(prevData => {
             const newPhasesData = { ...prevData.phasesData };
@@ -400,7 +363,8 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             setError(`Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`);
             logAction('Generate Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
             setLoadingPhase({ docId: null, step: null });
-            return;
+            // This return is critical to stop the automatic generation process on failure.
+            throw err;
         }
 
         // Step 2: Conditionally compact content ONLY for the Concept Proposal
@@ -512,10 +476,62 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         handleSave({ team: updatedTeam });
     };
 
+    const runAutomaticGeneration = async () => {
+        setIsAutoGenerating(true);
+        handleSave({ generationMode: 'automatic' }); // Set mode for UI feedback
+
+        // Get a fresh copy of documents to work with, sorted in processing order
+        const sortedDocs = [...projectData.documents].sort((a, b) => {
+            if (a.phase !== b.phase) return a.phase - b.phase;
+            return a.title.localeCompare(b.title);
+        });
+
+        // Use a functional update with `setProjectData` to ensure we're always working with the latest state.
+        for (const doc of sortedDocs) {
+            // Check the document's current status from the latest state.
+            // FIX: Explicitly type 'latestProjectData' as 'any' to resolve 'unknown' type from the Promise and allow property access.
+            const latestProjectData: any = await new Promise(resolve => setProjectData(current => {
+                resolve(current);
+                return current;
+            }));
+
+            const docToCheck = latestProjectData.documents.find(d => d.id === doc.id);
+
+            if (docToCheck && docToCheck.status !== 'Approved') {
+                try {
+                    logAction('Auto-generating document', project.name, { docTitle: docToCheck.title });
+                    
+                    // Generate content. This function already handles saving the content to state.
+                    await handleGenerateContent(doc.id, { isAuto: true });
+
+                    // Mark as approved and save to state.
+                    handleSave(prevData => ({
+                        documents: prevData.documents.map(d =>
+                            d.id === doc.id ? { ...d, status: 'Approved' } : d
+                        )
+                    }));
+                    
+                    // A brief pause allows the UI to update between steps.
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (err) {
+                    alert(`Automatic generation failed on document: "${doc.title}". Please review the error, fix any issues, and restart the process if needed.`);
+                    logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
+                    break; // Stop the process on failure.
+                }
+            }
+        }
+
+        // Finished
+        setIsAutoGenerating(false);
+        handleSave({ generationMode: 'manual' });
+        logAction('Automatic Generation Complete', project.name, {});
+        alert('Automatic document generation is complete.');
+    };
+
     const handleSetGenerationMode = (mode) => {
         if (mode === 'automatic' && !isAutoGenerating) {
             if (confirm("This will automatically generate and approve all remaining project documents. This process can take several minutes and cannot be stopped. Are you sure you want to proceed?")) {
-                handleSave({ generationMode: 'automatic' });
+                runAutomaticGeneration();
             }
         } else {
             handleSave({ generationMode: 'manual' });

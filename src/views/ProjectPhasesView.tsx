@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { PhaseCard } from '../components/PhaseCard';
 import { PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
@@ -26,20 +27,28 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
     };
 
     const getLockStatus = (docId) => {
-        const doc = documents.find(d => d.id === docId);
-        if (!doc) return { isLocked: true, lockReason: 'Document not found.' };
-
-        // A document is locked if any document from the immediately preceding phase is not 'Approved'.
-        const prevPhaseNumber = doc.phase - 1;
-        if (prevPhaseNumber > 0) {
-            const prevPhaseDocs = documents.filter(d => d.phase === prevPhaseNumber);
-            // An empty array returns true for .every(), correctly treating an empty phase as "complete".
-            const isPrevPhaseComplete = prevPhaseDocs.every(d => d.status === 'Approved');
-            if (!isPrevPhaseComplete) {
-                return { isLocked: true, lockReason: `Requires all documents in Phase ${prevPhaseNumber} to be approved.` };
-            }
+        const docIndex = projectPhases.findIndex(p => p.id === docId);
+    
+        if (docIndex === -1) {
+            return { isLocked: true, lockReason: 'Document not found.' };
         }
-
+    
+        // The very first document in the sequence is never locked.
+        if (docIndex === 0) {
+            return { isLocked: false, lockReason: null };
+        }
+    
+        // Check the status of the immediately preceding document in the sorted list.
+        const prevDocInSequence = projectPhases[docIndex - 1];
+        const prevDocData = documents.find(d => d.id === prevDocInSequence.id);
+    
+        if (prevDocData && prevDocData.status !== 'Approved') {
+            return {
+                isLocked: true,
+                lockReason: `Requires "${prevDocData.title}" to be approved first.`
+            };
+        }
+    
         return { isLocked: false, lockReason: null };
     };
 
