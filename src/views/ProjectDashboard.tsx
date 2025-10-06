@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { PHASES, PROMPTS, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
 import { DashboardView } from '../tools/DashboardView';
 import { ProjectPhasesView } from './ProjectPhasesView';
@@ -11,7 +11,8 @@ import { RevisionControlView } from '../tools/RevisionControlView';
 import { logAction } from '../utils/logging';
 import { NotificationModal } from '../components/NotificationModal';
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+// FIX: Changed to a standard async function declaration to avoid JSX parsing ambiguity with generic arrow functions.
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
     let lastError: Error;
     for (let i = 0; i < retries; i++) {
         try {
@@ -114,9 +115,16 @@ const truncatePrompt = (prompt: string): string => {
     return prompt.substring(0, MAX_PAYLOAD_CHARS) + "\n...[PROMPT TRUNCATED DUE TO PAYLOAD SIZE]...";
 };
 
+// FIX: Added interface for component props to resolve TypeScript errors.
+interface ProjectDashboardProps {
+    project: any;
+    onBack: () => void;
+    ai: GoogleGenAI;
+    saveProject: (project: any) => void;
+}
 
-export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
-    const [projectData, setProjectData] = useState({ ...project });
+export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onBack, ai, saveProject }) => {
+    const [projectData, setProjectData] = useState<any>({ ...project });
     const [loadingPhase, setLoadingPhase] = useState<{ docId: string | null; step: 'generating' | 'compacting' | null }>({ docId: null, step: null });
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('Dashboard');
@@ -266,7 +274,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
                  throw new Error("No tasks were found in the document.");
             }
     
-        } catch (e) {
+        } catch (e: any) {
             console.error("Failed to parse project plan:", e);
             logAction('Parse Project Plan Failure', project.name, { error: e.message });
             alert("Error: Could not parse the project plan from the document. Please check the document's formatting in the 'Project Phases' tab and try again. The document must contain '## Tasks' and '## Milestones' sections with valid Markdown tables.");
@@ -290,7 +298,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         }
     }, [project]);
 
-    const handleUpdatePhaseData = (docId, content, compactedContent = undefined) => {
+    const handleUpdatePhaseData = (docId: string, content: string, compactedContent: string | undefined | null = undefined) => {
         handleSave(prevData => {
             const newPhasesData = { ...prevData.phasesData };
             const currentData = newPhasesData[docId] || { attachments: [] };
@@ -307,7 +315,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         });
     };
 
-    const handleCompletePhase = (docId, isAuto = false) => {
+    const handleCompletePhase = (docId: string, isAuto = false) => {
         handleSave(prevData => ({
             documents: prevData.documents.map(doc =>
                 doc.id === docId ? { ...doc, status: 'Approved' } : doc
@@ -319,7 +327,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         logAction('Complete Phase', project.name, { docId });
     };
 
-    const handleGenerateContent = async (docId, options: { isAuto?: boolean, currentContent?: string } = {}) => {
+    const handleGenerateContent = async (docId: string, options: { isAuto?: boolean, currentContent?: string | null } = {}) => {
         const { isAuto = false, currentContent = null } = options;
 
         const docToGenerate = projectData.documents.find(d => d.id === docId);
@@ -364,7 +372,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             
             generatedContent = response.text;
             logAction('Generate Content Success', project.name, { docTitle: docToGenerate.title });
-        } catch (err) {
+        } catch (err: any) {
             console.error("API Error generating content:", err);
             setError(`Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`);
             logAction('Generate Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
@@ -399,7 +407,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             if (!isAuto) {
                 alert('Content generated and compacted successfully.');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("API Error compacting content:", err);
             logAction('Compact Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
             handleUpdatePhaseData(docId, generatedContent, null); // Save with null compacted content on failure
@@ -429,7 +437,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         });
     };
     
-    const handleUpdateDocumentStatus = (docId, newStatus) => {
+    const handleUpdateDocumentStatus = (docId: string, newStatus: string) => {
         handleSave(prevData => ({
             documents: prevData.documents.map(doc => 
                 doc.id === docId ? { ...doc, status: newStatus } : doc
@@ -437,7 +445,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         }));
     };
     
-    const handleUpdateTask = (taskId, updatedTask) => {
+    const handleUpdateTask = (taskId: string, updatedTask: any) => {
         setProjectData(prevData => {
             const updatedTasks = prevData.tasks.map(t => t.id === taskId ? updatedTask : t);
             const newState = { ...prevData, tasks: updatedTasks };
@@ -483,7 +491,6 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
         // Use a functional update with `setProjectData` to ensure we're always working with the latest state.
         for (const doc of sortedDocs) {
             // Check the document's current status from the latest state.
-            // FIX: Explicitly type 'latestProjectData' as 'any' to resolve 'unknown' type from the Promise and allow property access.
             const latestProjectData: any = await new Promise(resolve => setProjectData(current => {
                 resolve(current);
                 return current;
@@ -507,7 +514,7 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
                     
                     // A brief pause allows the UI to update between steps.
                     await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (err) {
+                } catch (err: any) {
                     alert(`Automatic generation failed on document: "${doc.title}". The process has been stopped. Please review the error, fix any issues (you may need to edit previous documents), and restart the process if needed.`);
                     logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
                      handleSave(prevData => ({

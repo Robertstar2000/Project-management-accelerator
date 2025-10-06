@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
@@ -12,7 +13,7 @@ import { DEFAULT_SPRINTS, TEMPLATES, DEFAULT_DOCUMENTS } from './constants/proje
 import { logAction } from './utils/logging';
 
 const App = () => {
-  const [ai, setAi] = useState(null);
+  const [ai, setAi] = useState<GoogleGenAI | null>(null);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,7 +31,6 @@ const App = () => {
         localStorage.setItem('hmap-gemini-key', key);
       }
       return true;
-    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type.
     } catch (error: any) {
       console.error(`Failed to initialize GoogleGenAI from ${source}:`, error);
       return false;
@@ -69,7 +69,6 @@ const App = () => {
           }
       }
 
-    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type, resolving "Cannot find name 'error'".
     } catch (error: any) {
         console.error("Failed to load data from localStorage:", error);
         setProjects([]);
@@ -91,7 +90,6 @@ const App = () => {
   const saveProjectsToStorage = (updatedProjects) => {
     try {
       localStorage.setItem('hmap-projects', JSON.stringify(updatedProjects));
-    // FIX: Add 'any' type to the catch block parameter to handle 'unknown' type.
     } catch (error: any) {
       console.error("Failed to save projects to localStorage:", error);
     }
