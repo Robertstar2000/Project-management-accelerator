@@ -828,6 +828,7 @@ export const GlobalStyles = `
   .phase-status.completed { background-color: var(--success-color); color: var(--background-color); }
   .phase-status.todo { background-color: var(--accent-color); color: var(--background-color); }
   .phase-status.locked { background-color: var(--locked-color); color: var(--primary-text); }
+  .phase-status.failed { background-color: var(--error-color); color: var(--background-color); }
 
   .phase-content {
     padding: 0 1.5rem 1.5rem;
@@ -845,6 +846,7 @@ export const GlobalStyles = `
   .phase-card.locked h3 { color: var(--secondary-text); }
   
   .phase-card.completed h3 { color: var(--success-color); }
+  .phase-card.failed h3 { color: var(--error-color); }
 
   .phase-content .display-content {
     background-color: var(--background-color);

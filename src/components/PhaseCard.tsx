@@ -13,7 +13,7 @@ interface PhaseCardProps {
     onComplete: (phaseId: string) => void;
     onAttachFile: (phaseId: string, fileData: { name: string, data: string }) => void;
     onRemoveAttachment: (phaseId: string, fileName: string) => void;
-    status: string;
+    status: 'locked' | 'completed' | 'todo' | 'failed';
     isLoading: boolean;
     loadingStep: 'generating' | 'compacting' | null;
     isOpen: boolean;

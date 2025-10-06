@@ -5,6 +5,7 @@ const getStatusChipClass = (status) => {
         case 'Approved': return 'chip-green';
         case 'Working': return 'chip-amber';
         case 'Rejected': return 'chip-red';
+        case 'Failed': return 'chip-red';
         default: return '';
     }
 };
@@ -40,6 +41,7 @@ export const DocumentsView = ({ documents, onUpdateDocument }) => {
                                     <option value="Working">Working</option>
                                     <option value="Approved">Approved</option>
                                     <option value="Rejected">Rejected</option>
+                                    <option value="Failed">Failed</option>
                                 </select>
                             </td>
                             <td>{doc.owner}</td>

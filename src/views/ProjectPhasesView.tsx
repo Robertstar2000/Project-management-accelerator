@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { PhaseCard } from '../components/PhaseCard';
 import { PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
@@ -108,7 +109,14 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
 
                 const { isLocked, lockReason } = getLockStatus(phase.id);
                 // Status for the chip: 'locked', 'completed' (if approved), or 'todo' (if working/rejected/etc.)
-                const status = isLocked ? 'locked' : (doc?.status === 'Approved' ? 'completed' : 'todo');
+                const status = isLocked 
+                    ? 'locked' 
+                    : doc?.status === 'Approved' 
+                        ? 'completed' 
+                        : (doc?.status === 'Failed' || doc?.status === 'Rejected') 
+                            ? 'failed' 
+                            : 'todo';
+
                 const isLoading = loadingPhase?.docId === phase.id;
                 const loadingStep = isLoading ? loadingPhase.step : null;
 

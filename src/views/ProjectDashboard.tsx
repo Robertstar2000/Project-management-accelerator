@@ -11,6 +11,42 @@ import { RevisionControlView } from '../tools/RevisionControlView';
 import { logAction } from '../utils/logging';
 import { NotificationModal } from '../components/NotificationModal';
 
+const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+    let lastError: Error;
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            console.warn(`Attempt ${i + 1} failed. Retrying in ${delay}ms...`, error);
+            if (i < retries - 1) {
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2; // Exponential backoff
+            }
+        }
+    }
+    throw lastError;
+};
+
+const getPromptFunction = (docTitle, phase) => {
+    const title = docTitle.toLowerCase();
+    if (phase === 1 && title.includes('concept proposal')) return PROMPTS.phase1;
+    if (title.includes('resources & skills')) return PROMPTS.phase2;
+    if (title.includes('swot') || title.includes('risk analysis')) return PROMPTS.phase3;
+    if (title.includes('kickoff briefing')) return PROMPTS.phase4;
+    if (title.includes('statement of work') || title.includes('sow')) return PROMPTS.phase5;
+    if (title.includes('preliminary review')) return PROMPTS.phase6;
+    if (title.includes('detailed plans') || title.includes('project timeline')) return PROMPTS.phase7;
+    if (phase === 8) {
+        if (title.includes('sprint requirements') || title.includes('user story backlog')) return PROMPTS.phase8_sprintRequirements;
+        if (title.includes('sprint plan review')) return PROMPTS.phase8_sprintPlanReview;
+        if (title.includes('critical review')) return PROMPTS.phase8_criticalReview;
+        return PROMPTS.phase8_generic; // Fallback for other phase 8 docs
+    }
+    // Fallback for any other custom documents (e.g. in phase 9)
+    return PROMPTS.phase8_generic;
+}
+
 const parseMarkdownTable = (tableString) => {
     if (!tableString) return [];
     const rows = tableString.trim().split('\n');
@@ -294,67 +330,37 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
 
         setError('');
         let generatedContent = '';
-        const complexity = projectData.complexity || 'typical';
+        const { name, discipline, mode, scope, teamSize, complexity = 'typical' } = projectData;
+        const docTitle = docToGenerate.title;
 
         // Step 1: Generate human-readable content
         setLoadingPhase({ docId, step: 'generating' });
         try {
-            const { name, discipline, mode, scope, teamSize } = projectData;
-            const docTitle = docToGenerate.title;
-            const titleLowerCase = docTitle.toLowerCase();
-            const phase = docToGenerate.phase;
             let promptText;
+            const promptGenerator = getPromptFunction(docTitle, docToGenerate.phase);
 
-            // Create a separate, clear path for the Concept Proposal.
-            // For this specific document, the primary input ("context") is the user's raw text entry.
-            if (titleLowerCase.includes('concept proposal')) {
+            if (promptGenerator === PROMPTS.phase1) {
                 const userInput = currentContent !== null ? currentContent : (projectData.phasesData?.[docId]?.content || '');
-
-                // Persist the user's input if it was passed fresh from the card's state.
                 if (currentContent !== null && userInput !== (projectData.phasesData?.[docId]?.content)) {
-                    handleUpdatePhaseData(docId, userInput, null); // Save the input and invalidate any old compacted content.
+                    handleUpdatePhaseData(docId, userInput, null);
                 }
-                
-                promptText = PROMPTS.phase1(name, discipline, userInput, mode, scope, teamSize, complexity);
-
+                promptText = promptGenerator(name, discipline, userInput, mode, scope, teamSize, complexity);
             } else {
-                // For ALL other documents, derive context from previously approved documents using the standard method.
                 const context = getRelevantContext(docToGenerate, projectData.documents, projectData.phasesData);
-
-                if (titleLowerCase.includes('resources & skills list')) {
-                    promptText = PROMPTS.phase2(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('swot analysis')) {
-                    promptText = PROMPTS.phase3(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('kickoff briefing')) {
-                    promptText = PROMPTS.phase4(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('statement of work')) {
-                    promptText = PROMPTS.phase5(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('preliminary review')) {
-                    promptText = PROMPTS.phase6(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (titleLowerCase.includes('detailed plans') || titleLowerCase.includes('project timeline')) {
-                    promptText = PROMPTS.phase7(name, discipline, context, mode, scope, teamSize, complexity);
-                } else if (phase === 8) {
-                    if (titleLowerCase.includes('sprint requirements') || titleLowerCase.includes('user story backlog')) {
-                        promptText = PROMPTS.phase8_sprintRequirements(name, discipline, context, mode, scope, teamSize, complexity);
-                    } else if (titleLowerCase.includes('sprint plan review')) {
-                        promptText = PROMPTS.phase8_sprintPlanReview(name, discipline, context, mode, scope, teamSize, complexity);
-                    } else if (titleLowerCase.includes('critical review')) {
-                        promptText = PROMPTS.phase8_criticalReview(name, discipline, context, mode, scope, teamSize, complexity);
-                    } else {
-                        promptText = PROMPTS.phase8_generic(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
-                    }
+                if (promptGenerator === PROMPTS.phase8_generic) {
+                    promptText = promptGenerator(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
                 } else {
-                    promptText = PROMPTS.phase8_generic(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
+                    promptText = promptGenerator(name, discipline, context, mode, scope, teamSize, complexity);
                 }
             }
             
             const finalPrompt = truncatePrompt(promptText);
             logAction('Generate Content Start', project.name, { docTitle: docToGenerate.title, promptLength: finalPrompt.length });
 
-            const response = await ai.models.generateContent({
+            const response = await withRetry(() => ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: finalPrompt,
-            });
+            }));
             
             generatedContent = response.text;
             logAction('Generate Content Success', project.name, { docTitle: docToGenerate.title });
@@ -363,53 +369,41 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
             setError(`Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`);
             logAction('Generate Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
             setLoadingPhase({ docId: null, step: null });
-            // This return is critical to stop the automatic generation process on failure.
-            throw err;
+            throw err; // Re-throw to be caught by automatic generation process
         }
 
-        // Step 2: Conditionally compact content ONLY for the Concept Proposal
-        if (docToGenerate.title.toLowerCase().includes('concept proposal')) {
-            setLoadingPhase({ docId, step: 'compacting' });
-
-            if (generatedContent.length > MAX_PAYLOAD_CHARS - 1000) {
-                console.warn(`Content for ${docToGenerate.title} is very large (${generatedContent.length} chars). Using a truncated version for context to avoid compaction errors.`);
-                logAction('Compact Content Skipped (Too Large)', project.name, { docTitle: docToGenerate.title, length: generatedContent.length });
-                const truncatedForContext = generatedContent.substring(0, MAX_PAYLOAD_CHARS - 1000) + "\n\n...[CONTENT TRUNCATED FOR CONTEXT DUE TO SIZE LIMITS]...";
-                handleUpdatePhaseData(docId, generatedContent, truncatedForContext);
-                if (!isAuto) {
-                    alert('Content generated successfully. NOTE: Due to its large size, a truncated version will be used for future AI context to prevent errors.');
-                }
-                setLoadingPhase({ docId: null, step: null });
-                return;
-            }
-
-            try {
-                const compactionPrompt = PROMPTS.compactContent(generatedContent);
-                logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title, promptLength: compactionPrompt.length });
-                const compactResponse = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: compactionPrompt,
-                });
-                const compactedContent = compactResponse.text;
-                handleUpdatePhaseData(docId, generatedContent, compactedContent);
-                logAction('Compact Content Success', project.name, { docTitle: docToGenerate.title });
-                if (!isAuto) {
-                    alert('Content generated and compacted successfully.');
-                }
-            } catch (err) {
-                console.error("API Error compacting content:", err);
-                logAction('Compact Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
-                handleUpdatePhaseData(docId, generatedContent, null); // Save with null compacted content on failure
-            } finally {
-                setLoadingPhase({ docId: null, step: null });
-            }
-        } else {
-            // For all other documents, skip compaction.
-            handleUpdatePhaseData(docId, generatedContent, null);
-            logAction('Compact Content Skipped (Not Concept Proposal)', project.name, { docTitle: docToGenerate.title });
+        // Step 2: Compact content for all documents to improve future context quality.
+        setLoadingPhase({ docId, step: 'compacting' });
+        if (generatedContent.length > MAX_PAYLOAD_CHARS - 1000) {
+            console.warn(`Content for ${docToGenerate.title} is very large (${generatedContent.length} chars). Using a truncated version for context.`);
+            logAction('Compact Content Skipped (Too Large)', project.name, { docTitle: docToGenerate.title, length: generatedContent.length });
+            const truncatedForContext = generatedContent.substring(0, MAX_PAYLOAD_CHARS - 1000) + "\n\n...[CONTENT TRUNCATED FOR CONTEXT DUE TO SIZE LIMITS]...";
+            handleUpdatePhaseData(docId, generatedContent, truncatedForContext);
             if (!isAuto) {
-                alert('Content generated successfully.');
+                alert('Content generated successfully. NOTE: Due to its large size, a truncated version will be used for future AI context.');
             }
+            setLoadingPhase({ docId: null, step: null });
+            return;
+        }
+
+        try {
+            const compactionPrompt = PROMPTS.compactContent(generatedContent);
+            logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title });
+            const compactResponse = await withRetry(() => ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: compactionPrompt,
+            }));
+            const compactedContent = compactResponse.text;
+            handleUpdatePhaseData(docId, generatedContent, compactedContent);
+            logAction('Compact Content Success', project.name, { docTitle: docToGenerate.title });
+            if (!isAuto) {
+                alert('Content generated and compacted successfully.');
+            }
+        } catch (err) {
+            console.error("API Error compacting content:", err);
+            logAction('Compact Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
+            handleUpdatePhaseData(docId, generatedContent, null); // Save with null compacted content on failure
+        } finally {
             setLoadingPhase({ docId: null, step: null });
         }
     };
@@ -514,8 +508,13 @@ export const ProjectDashboard = ({ project, onBack, ai, saveProject }) => {
                     // A brief pause allows the UI to update between steps.
                     await new Promise(resolve => setTimeout(resolve, 200));
                 } catch (err) {
-                    alert(`Automatic generation failed on document: "${doc.title}". Please review the error, fix any issues, and restart the process if needed.`);
+                    alert(`Automatic generation failed on document: "${doc.title}". The process has been stopped. Please review the error, fix any issues (you may need to edit previous documents), and restart the process if needed.`);
                     logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
+                     handleSave(prevData => ({
+                        documents: prevData.documents.map(d =>
+                            d.id === doc.id ? { ...d, status: 'Failed' } : d
+                        )
+                    }));
                     break; // Stop the process on failure.
                 }
             }
