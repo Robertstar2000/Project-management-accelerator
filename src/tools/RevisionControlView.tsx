@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';

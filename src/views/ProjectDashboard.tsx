@@ -2,7 +2,8 @@
 
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { GoogleGenAI } from "@google/genai";
+// FIX: Import GenerateContentResponse to explicitly type API call results.
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { PHASES, PROMPTS, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
 import { DashboardView } from '../tools/DashboardView';
 import { ProjectPhasesView } from './ProjectPhasesView';
@@ -397,7 +398,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             const finalPrompt = truncatePrompt(promptText);
             logAction('Generate Content Start', project.name, { docTitle: docToGenerate.title, promptLength: finalPrompt.length });
 
-            const response = await withRetry(() => ai.models.generateContent({
+            // FIX: Explicitly type the response to ensure the 'text' property is accessible.
+            const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: finalPrompt,
             }));
@@ -429,7 +431,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         try {
             const compactionPrompt = PROMPTS.compactContent(generatedContent);
             logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title });
-            const compactResponse = await withRetry(() => ai.models.generateContent({
+            // FIX: Explicitly type the response to ensure the 'text' property is accessible.
+            const compactResponse: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: compactionPrompt,
             }));
