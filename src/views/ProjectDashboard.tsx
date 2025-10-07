@@ -48,19 +48,52 @@ const getPromptFunction = (docTitle, phase) => {
     return PROMPTS.phase8_generic;
 }
 
-const parseMarkdownTable = (tableString) => {
-    if (!tableString) return [];
-    const rows = tableString.trim().split('\n');
-    const headers = rows[0].split('|').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
-    const data = rows.slice(2).map(row => {
-        const values = row.split('|').map(v => v.trim());
-        const obj = {};
-        headers.forEach((header, index) => {
-            if (header) obj[header] = values[index];
-        });
-        return obj;
-    });
-    return data;
+const parseMarkdownTable = (sectionString: string) => {
+    if (!sectionString) return [];
+    
+    const lines = sectionString.trim().split('\n');
+    let headerIndex = -1;
+    
+    // Find the start of the table by looking for a header row and a separator row
+    for (let i = 0; i < lines.length - 1; i++) {
+        const currentRow = lines[i];
+        const nextRow = lines[i+1];
+        // A valid header row must contain '|', and the next row must be a separator line.
+        if (currentRow.includes('|') && nextRow.match(/^[|\s-:]+$/) && nextRow.includes('-')) {
+            headerIndex = i;
+            break;
+        }
+    }
+
+    if (headerIndex === -1) return [];
+
+    const headerLine = lines[headerIndex];
+    // Data starts 2 lines after the header (skipping the separator)
+    const dataLines = lines.slice(headerIndex + 2);
+
+    const headers = headerLine.split('|').map(h => 
+        h.trim().toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '')
+    );
+    
+    const data = dataLines
+        .map(row => {
+            // Ensure the row is part of the table
+            if (!row.includes('|')) return null; 
+            const values = row.split('|').map(v => v.trim());
+            // If the number of columns doesn't match the header, it's likely not a valid row
+            if (values.length !== headers.length) return null;
+
+            const obj: { [key: string]: string } = {};
+            headers.forEach((header, index) => {
+                if (header) { // Skip empty headers from start/end pipes
+                    obj[header] = values[index];
+                }
+            });
+            return obj;
+        })
+        .filter(Boolean); // remove any nulls from invalid rows
+
+    return data as any[];
 };
 
 const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
@@ -212,12 +245,11 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             const tasksSection = sections.find(s => s.trim().toLowerCase().startsWith('tasks'));
             const milestonesSection = sections.find(s => s.trim().toLowerCase().startsWith('milestones'));
     
-            let parsedTasks = [];
-            let parsedMilestones = [];
+            let parsedTasks: any[] = [];
+            let parsedMilestones: any[] = [];
     
             if (tasksSection) {
-                const tableContent = tasksSection.substring(tasksSection.indexOf('\n')).trim();
-                const rawTasks = parseMarkdownTable(tableContent);
+                const rawTasks = parseMarkdownTable(tasksSection);
                 const taskNameMap = new Map();
                 parsedTasks = rawTasks.map((t, index) => {
                     const taskId = `task-${Date.now()}-${index}`;
@@ -248,8 +280,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             }
     
             if (milestonesSection) {
-                const tableContent = milestonesSection.substring(milestonesSection.indexOf('\n')).trim();
-                const rawMilestones = parseMarkdownTable(tableContent);
+                const rawMilestones = parseMarkdownTable(milestonesSection);
                 parsedMilestones = rawMilestones.map((m, index) => ({
                     id: `milestone-${Date.now()}-${index}`,
                     name: m.milestone_name,

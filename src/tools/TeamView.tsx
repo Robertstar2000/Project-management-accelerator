@@ -1,39 +1,59 @@
 import React, { useState, useMemo, useEffect } from 'react';
 
-const parseRolesFromMarkdown = (markdownText) => {
+const parseRolesFromMarkdown = (markdownText: string): string[] => {
     if (!markdownText) return [];
     const lines = markdownText.split('\n');
     const roles = new Set<string>();
     let inRolesSection = false;
-    let foundAnyList = false;
 
-    // First pass: look for a specific "Roles" section
+    // --- First Pass: Find a specific section heading for roles ---
+    // This is more robust and looks for common variations of role/personnel headings.
+    const roleSectionRegex = /^#+\s*(team|required|project)?\s*(roles|personnel|team members)/i;
+
     for (const line of lines) {
-        if (line.match(/^#+\s*Roles/i)) {
+        // If we find a heading that matches, start capturing roles.
+        if (roleSectionRegex.test(line)) {
             inRolesSection = true;
             continue;
         }
-        if (line.match(/^#+\s*/) && inRolesSection) {
-            inRolesSection = false; // We've hit the next section
-            break;
+
+        // If we were in a roles section and hit another heading, stop.
+        if (inRolesSection && line.match(/^#+\s*/)) {
+            inRolesSection = false;
+            break; // Stop looking, we've found and parsed our section.
         }
+
+        // If we are in the roles section, extract list items.
         if (inRolesSection && line.match(/^[-*]\s+/)) {
-            const roleName = line.replace(/^[-*]\s+/, '').split(/[:(]/)[0].trim();
+            // Improved extraction to handle markdown (like bolding) and extra text.
+            const roleName = line
+                .replace(/^[-*]\s+/, '') // Remove bullet point
+                .replace(/\*\*/g, '')      // Remove bolding asterisks
+                .split(/[:(]/)[0]         // Split at ':' or '(' to isolate the role name
+                .trim();
             if (roleName) roles.add(roleName);
         }
     }
-    
-    // If we found a specific section and it has roles, we're done.
-    if (roles.size > 0) return Array.from(roles);
 
-    // Second pass (fallback): grab the first bulleted list we find.
+    // If the first pass found roles under a specific heading, return them.
+    if (roles.size > 0) {
+        return Array.from(roles);
+    }
+
+    // --- Second Pass (Fallback): Find the first bulleted list as a last resort ---
+    // This is kept for backward compatibility if the AI omits a clear heading.
+    let foundAnyList = false;
     for (const line of lines) {
         if (line.match(/^[-*]\s+/)) {
-            foundAnyList = true;
-            const roleName = line.replace(/^[-*]\s+/, '').split(/[:(]/)[0].trim();
+            foundAnyList = true; // We've entered a list
+            const roleName = line
+                .replace(/^[-*]\s+/, '')
+                .replace(/\*\*/g, '')
+                .split(/[:(]/)[0]
+                .trim();
             if (roleName) roles.add(roleName);
         } else if (foundAnyList && line.trim() === '') {
-            // If we've found a list and then a blank line, assume that list is over.
+            // If we've found a list and then a blank line, assume that list is over and stop.
             break;
         }
     }
