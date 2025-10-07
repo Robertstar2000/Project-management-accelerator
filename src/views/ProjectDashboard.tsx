@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { PHASES, PROMPTS, PHASE_DOCUMENT_REQUIREMENTS } from '../constants/projectData';
@@ -597,7 +598,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                             isAutoGenerating={isAutoGenerating}
                         />;
             case 'Documents':
-                return <DocumentsView documents={projectData.documents} onUpdateDocument={handleUpdateDocumentStatus} />;
+                return <DocumentsView 
+                            project={projectData}
+                            documents={projectData.documents} 
+                            onUpdateDocument={handleUpdateDocumentStatus} 
+                            phasesData={projectData.phasesData || {}} 
+                        />;
             case 'Project Tracking':
                 return <ProjectTrackingView 
                             project={projectData}
