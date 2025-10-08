@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 // FIX: Import GenerateContentResponse to explicitly type API call results.
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
@@ -73,8 +72,10 @@ const parseMarkdownTable = (sectionString: string) => {
     // Data starts 2 lines after the header (skipping the separator)
     const dataLines = lines.slice(headerIndex + 2);
 
-    const headers = headerLine.split('|').map(h => 
-        h.trim().toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '')
+    // FIX: More robustly handle spaces and hyphens as separators in headers
+    // to prevent parsing failures from AI-generated variations like 'Milestone-Name'.
+    const headers = headerLine.split('|').map(h =>
+        h.trim().toLowerCase().replace(/[()]/g, '').replace(/[\s-]+/g, '_')
     );
     
     const data = dataLines
@@ -157,6 +158,45 @@ interface ProjectDashboardProps {
     ai: GoogleGenAI;
     saveProject: (project: any) => void;
 }
+
+const BackToTopButton = () => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    const toggleVisibility = useCallback(() => {
+        if (window.scrollY > 300) {
+            setIsVisible(true);
+        } else {
+            setIsVisible(false);
+        }
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    };
+
+    useEffect(() => {
+        window.addEventListener('scroll', toggleVisibility);
+        return () => {
+            window.removeEventListener('scroll', toggleVisibility);
+        };
+    }, [toggleVisibility]);
+
+    return (
+        <button 
+            onClick={scrollToTop} 
+            className={`back-to-top-fab ${isVisible ? 'visible' : ''}`} 
+            aria-label="Go to top"
+            aria-hidden={!isVisible}
+            tabIndex={isVisible ? 0 : -1}
+        >
+            ↑
+        </button>
+    );
+};
+
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onBack, ai, saveProject }) => {
     const [projectData, setProjectData] = useState<any>({ ...project });
@@ -648,14 +688,16 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             </div>
 
             <nav className="dashboard-nav">
-                <button onClick={() => handleTabChange('Dashboard')} className={activeTab === 'Dashboard' ? 'active' : ''}>Dashboard</button>
+                <button onClick={() => handleTabChange('Dashboard')} className={activeTab === 'Dashboard' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Dashboard</button>
                 <button onClick={() => handleTabChange('Project Phases')} className={activeTab === 'Project Phases' ? 'active' : ''}>Project Phases</button>
                 <button onClick={() => handleTabChange('Documents')} className={activeTab === 'Documents' ? 'active' : ''}>Documents</button>
-                <button onClick={() => handleTabChange('Project Tracking')} className={activeTab === 'Project Tracking' ? 'active' : ''}>Project Tracking</button>
-                <button onClick={() => handleTabChange('Revision Control')} className={activeTab === 'Revision Control' ? 'active' : ''}>Revision Control</button>
+                <button onClick={() => handleTabChange('Project Tracking')} className={activeTab === 'Project Tracking' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Project Tracking</button>
+                <button onClick={() => handleTabChange('Revision Control')} className={activeTab === 'Revision Control' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Revision Control</button>
             </nav>
             
             {renderActiveTab()}
+
+            <BackToTopButton />
 
             <NotificationModal 
                 isOpen={notificationQueue.length > 0}

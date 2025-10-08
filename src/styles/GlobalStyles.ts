@@ -1029,6 +1029,43 @@ export const GlobalStyles = `
     transform: scale(1.1);
     box-shadow: 0 6px 15px rgba(0, 242, 255, 0.4);
   }
+  
+  /* Back to Top FAB */
+  .back-to-top-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 6.5rem; /* Position next to the help button */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: var(--card-background);
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    font-size: 1.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    z-index: 998; /* Below help fab */
+    transition: all 0.2s ease;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+  }
+  
+  .back-to-top-fab.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .back-to-top-fab:hover {
+    transform: scale(1.1) translateY(0);
+    background-color: var(--accent-color);
+    color: var(--background-color);
+  }
 
   /* Help Modal */
   .help-modal-content {

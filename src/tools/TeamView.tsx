@@ -2,62 +2,51 @@ import React, { useState, useMemo, useEffect } from 'react';
 
 const parseRolesFromMarkdown = (markdownText: string): string[] => {
     if (!markdownText) return [];
+
     const lines = markdownText.split('\n');
+    const roleSectionKeywords = ['roles', 'personnel', 'team members', 'team'];
+    let roleLines: string[] = [];
+    
+    // Pass 1: Find a specific section heading (e.g., "## Roles") and extract its bulleted list.
+    let sectionStartIndex = -1;
+    for (const keyword of roleSectionKeywords) {
+        const headingRegex = new RegExp(`^#+\\s*.*${keyword}.*`, 'i');
+        sectionStartIndex = lines.findIndex(line => headingRegex.test(line));
+        if (sectionStartIndex !== -1) break;
+    }
+
+    if (sectionStartIndex !== -1) {
+        let sectionEndIndex = lines.findIndex((line, i) => i > sectionStartIndex && line.match(/^#+/));
+        if (sectionEndIndex === -1) sectionEndIndex = lines.length;
+        
+        const sectionContent = lines.slice(sectionStartIndex + 1, sectionEndIndex);
+        roleLines = sectionContent.filter(line => line.match(/^[-*]\s+/));
+    }
+    
+    // Pass 2 (Fallback): If no specific section was found, or it was empty, find the first bulleted list in the document.
+    if (roleLines.length === 0) {
+        let foundList = false;
+        for (const line of lines) {
+            if (line.match(/^[-*]\s+/)) {
+                foundList = true;
+                roleLines.push(line);
+            } else if (foundList && line.trim() === '') {
+                // Assume the first blank line after a list signifies the end of that list.
+                break;
+            }
+        }
+    }
+
     const roles = new Set<string>();
-    let inRolesSection = false;
-
-    // --- First Pass: Find a specific section heading for roles ---
-    // This is more robust and looks for common variations of role/personnel headings.
-    const roleSectionRegex = /^#+\s*(team|required|project)?\s*(roles|personnel|team members)/i;
-
-    for (const line of lines) {
-        // If we find a heading that matches, start capturing roles.
-        if (roleSectionRegex.test(line)) {
-            inRolesSection = true;
-            continue;
-        }
-
-        // If we were in a roles section and hit another heading, stop.
-        if (inRolesSection && line.match(/^#+\s*/)) {
-            inRolesSection = false;
-            break; // Stop looking, we've found and parsed our section.
-        }
-
-        // If we are in the roles section, extract list items.
-        if (inRolesSection && line.match(/^[-*]\s+/)) {
-            // Improved extraction to handle markdown (like bolding) and extra text.
-            const roleName = line
-                .replace(/^[-*]\s+/, '') // Remove bullet point
-                .replace(/\*\*/g, '')      // Remove bolding asterisks
-                .split(/[:(]/)[0]         // Split at ':' or '(' to isolate the role name
-                .trim();
-            if (roleName) roles.add(roleName);
-        }
+    for (const line of roleLines) {
+        const roleName = line
+            .replace(/^[-*]\s+/, '') // Remove bullet point
+            .replace(/\*\*/g, '')      // Remove bolding asterisks
+            .split(/[:(]/)[0]         // Split at ':' or '(' to isolate the role name
+            .trim();
+        if (roleName) roles.add(roleName);
     }
-
-    // If the first pass found roles under a specific heading, return them.
-    if (roles.size > 0) {
-        return Array.from(roles);
-    }
-
-    // --- Second Pass (Fallback): Find the first bulleted list as a last resort ---
-    // This is kept for backward compatibility if the AI omits a clear heading.
-    let foundAnyList = false;
-    for (const line of lines) {
-        if (line.match(/^[-*]\s+/)) {
-            foundAnyList = true; // We've entered a list
-            const roleName = line
-                .replace(/^[-*]\s+/, '')
-                .replace(/\*\*/g, '')
-                .split(/[:(]/)[0]
-                .trim();
-            if (roleName) roles.add(roleName);
-        } else if (foundAnyList && line.trim() === '') {
-            // If we've found a list and then a blank line, assume that list is over and stop.
-            break;
-        }
-    }
-
+    
     return Array.from(roles);
 };
 
