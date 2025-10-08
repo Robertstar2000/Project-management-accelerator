@@ -581,11 +581,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                     await handleGenerateContent(doc.id, { isAuto: true });
 
                     // Mark as approved and save to state.
-                    handleSave(prevData => ({
-                        documents: prevData.documents.map(d =>
-                            d.id === doc.id ? { ...d, status: 'Approved' } : d
-                        )
-                    }));
+                    handleCompletePhase(doc.id, true);
                     
                     // A brief pause allows the UI to update between steps.
                     await new Promise(resolve => setTimeout(resolve, 200));

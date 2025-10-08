@@ -81,8 +81,8 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
                                 aria-pressed={generationMode === 'manual'}
                                 disabled={isAutoGenerating}
                             >
-                                Review and align every document
-                                <span>Manually generate, edit, and approve each document.</span>
+                                HMAP Human Mediated Agentic Process
+                                <span>Manually generate, edit, and approve each document. This is the standard, recommended workflow.</span>
                             </button>
                             <button 
                                 type="button" 
@@ -91,12 +91,12 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
                                 aria-pressed={generationMode === 'automatic'}
                                 disabled={isAutoGenerating}
                             >
-                                Generate all necessary documents automatically
-                                <span>The AI will generate and approve all remaining documents.</span>
+                                Automated Document Generation
+                                <span>The AI will generate and approve all remaining documents in sequence. Use this to accelerate initial setup.</span>
                             </button>
                         </div>
                         <p style={{ fontSize: '0.9rem', color: 'var(--secondary-text)', marginTop: '1rem', padding: '0 0.5rem', lineHeight: '1.5' }}>
-                            Although documents are automatically created they may be extensive and each will require your review, editing and approval. This will provide the best alignment with your intent. Skipping manual review and edit with automatic document generation is faster but still requires time to complete a full set of documents.
+                            The **manual HMAP workflow** provides the best alignment with your intent, as you review and edit each AI-generated document. The **automated workflow** is much faster for initial setup, but the generated documents will still require your final review for correctness and context.
                         </p>
                         {isAutoGenerating && <p style={{color: 'var(--accent-color)', textAlign: 'center', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}><span className="spinner" style={{width: '20px', height: '20px', borderWidth: '2px'}}></span>Automatic generation in progress...</p>}
                     </div>
