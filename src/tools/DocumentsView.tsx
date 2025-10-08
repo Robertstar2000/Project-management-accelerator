@@ -1,5 +1,7 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useState } from 'react';
 import JSZip from 'jszip';
+import { GoogleGenAI } from "@google/genai";
 
 const getStatusChipClass = (status) => {
     switch (status) {
@@ -11,8 +13,9 @@ const getStatusChipClass = (status) => {
     }
 };
 
-export const DocumentsView = ({ project, documents, onUpdateDocument, phasesData }) => {
+export const DocumentsView = ({ project, documents, onUpdateDocument, phasesData, ai }) => {
     const uploadInputRef = useRef<HTMLInputElement>(null);
+    const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
     const handleUploadClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
@@ -20,6 +23,7 @@ export const DocumentsView = ({ project, documents, onUpdateDocument, phasesData
     };
     
     const handleCreateProjectPrompt = async () => {
+        setIsGenerating('project');
         try {
             const response = await fetch('readme-logic.md');
             if (!response.ok) {
@@ -62,41 +66,55 @@ ${projectDataString}
 **Final Output:**
 Provide the complete, independent source code for each required file. Do not include explanations, just the raw file content for each path.
 `;
-            console.log(prompt);
-            alert('The prompt to create the entire project has been generated and logged to the browser console.');
+
+            const textToDownload = prompt;
+            
+            const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-project-generation-prompt.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+
         } catch (error) {
             console.error("Error creating project prompt:", error);
-            alert("Could not generate project prompt. See console for details.");
+            alert("Could not create the project prompt. See console for details.");
+        } finally {
+            setIsGenerating(null);
         }
     };
 
-    const handleCreateSimulationPrompt = () => {
-        const keyDocuments = ['Concept Proposal', 'Statement of Work (SOW)', 'Resources & Skills List', 'Detailed Plans (WBS/WRS)'];
-        let context = '';
+    const handleCreateSimulationPrompt = async () => {
+        setIsGenerating('simulation');
+        try {
+            const keyDocuments = ['Concept Proposal', 'Statement of Work (SOW)', 'Resources & Skills List', 'Detailed Plans (WBS/WRS)'];
+            let context = '';
 
-        keyDocuments.forEach(title => {
-            const doc = project.documents.find(d => d.title === title);
-            if (doc && phasesData[doc.id]?.content) {
-                context += `--- Document: ${title} ---\n${phasesData[doc.id].content}\n\n`;
-            }
-        });
+            keyDocuments.forEach(title => {
+                const doc = project.documents.find(d => d.title === title);
+                if (doc && phasesData[doc.id]?.content) {
+                    context += `--- Document: ${title} ---\n${phasesData[doc.id].content}\n\n`;
+                }
+            });
 
-        const projectDataSummary = {
-            name: project.name,
-            discipline: project.discipline,
-            mode: project.mode,
-            scope: project.scope,
-            teamSize: project.teamSize,
-            complexity: project.complexity,
-            startDate: project.startDate,
-            endDate: project.endDate,
-            budget: project.budget,
-            tasks: project.tasks?.map(t => ({ name: t.name, status: t.status, startDate: t.startDate, endDate: t.endDate, dependsOn: t.dependsOn, role: t.role })),
-            milestones: project.milestones,
-            team: project.team
-        };
+            const projectDataSummary = {
+                name: project.name,
+                discipline: project.discipline,
+                mode: project.mode,
+                scope: project.scope,
+                teamSize: project.teamSize,
+                complexity: project.complexity,
+                startDate: project.startDate,
+                endDate: project.endDate,
+                budget: project.budget,
+                tasks: project.tasks?.map(t => ({ name: t.name, status: t.status, startDate: t.startDate, endDate: t.endDate, dependsOn: t.dependsOn, role: t.role })),
+                milestones: project.milestones,
+                team: project.team
+            };
 
-        const prompt = `
+            const prompt = `
 **Objective:** Act as an expert project management simulation engine. Your task is to analyze the provided project data and predict its future execution, identifying potential risks and providing actionable recommendations.
 
 **Role:** You are a seasoned project manager with deep expertise in risk analysis, timeline forecasting, and team dynamics for the "${project.discipline}" industry.
@@ -142,9 +160,24 @@ Present your findings in a clear, structured report using Markdown. Use the foll
 -   \`## 2. Key Risk Analysis\`
 -   \`## 3. Strategic Recommendations\`
 `;
+            
+            const textToDownload = prompt;
+            
+            const blob = new Blob([textToDownload], { type: 'text/markdown;charset=utf-8' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-simulation-prompt.md`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
 
-        console.log(prompt);
-        alert('The prompt to create a project simulation has been generated and logged to the browser console.');
+        } catch (error) {
+            console.error("Error creating project simulation prompt:", error);
+            alert("Could not create the project simulation prompt. See console for details.");
+        } finally {
+            setIsGenerating(null);
+        }
     };
 
     const handleDownloadAll = async () => {
@@ -185,9 +218,23 @@ Present your findings in a clear, structured report using Markdown. Use the foll
         <div className="tool-card">
             <h2 className="subsection-title">Documents Center</h2>
             <div style={{display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap'}}>
-                <button className="button" onClick={handleCreateProjectPrompt}>Create Project Prompt</button>
-                <button className="button" onClick={handleCreateSimulationPrompt}>Create Simulation Prompt</button>
-                <button className="button" onClick={handleDownloadAll}>Download All as .zip</button>
+                <button className="button" onClick={handleCreateProjectPrompt} disabled={!!isGenerating}>
+                    {isGenerating === 'project' ? (
+                        <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
+                            <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
+                            <span>Generating...</span>
+                        </span>
+                    ) : 'Create Project Prompt'}
+                </button>
+                <button className="button" onClick={handleCreateSimulationPrompt} disabled={!!isGenerating}>
+                    {isGenerating === 'simulation' ? (
+                        <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
+                            <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
+                            <span>Generating...</span>
+                        </span>
+                    ) : 'Create Simulation Prompt'}
+                </button>
+                <button className="button" onClick={handleDownloadAll} disabled={!!isGenerating}>Download All as .zip</button>
             </div>
             <table className="document-table">
                 <thead><tr><th>Title</th><th>Version</th><th>Status</th><th>Owner</th><th>Phase</th><th>Actions</th></tr></thead>

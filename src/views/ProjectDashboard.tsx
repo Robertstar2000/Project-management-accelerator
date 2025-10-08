@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 // FIX: Import GenerateContentResponse to explicitly type API call results.
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
@@ -233,11 +232,15 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
     }, [projectData.documents]);
 
     const isPlanningComplete = useMemo(() => {
-        const allRequiredDocTitles = [...new Set(Object.values(PHASE_DOCUMENT_REQUIREMENTS).flat())];
-        const allDocsApproved = allRequiredDocTitles.every(title => {
-            const doc = projectData.documents.find(d => d.title === title);
-            return doc && doc.status === 'Approved';
-        });
+        // Ensure there are documents to check
+        if (!projectData.documents || projectData.documents.length === 0) {
+            return false;
+        }
+        // Check if EVERY document in the project has been approved.
+        const allDocsApproved = projectData.documents.every(doc => doc.status === 'Approved');
+        
+        // The second condition remains: the project plan must have been parsed and populated tasks.
+        // This is a good indicator that the planning phase is truly over.
         return allDocsApproved && projectData.tasks && projectData.tasks.length > 0;
     }, [projectData.documents, projectData.tasks]);
 
@@ -607,11 +610,15 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
 
     const handleSetGenerationMode = (mode) => {
         if (mode === 'automatic' && !isAutoGenerating) {
-            if (confirm("This will automatically generate and approve all remaining project documents. This process can take several minutes and cannot be stopped. Are you sure you want to proceed?")) {
-                runAutomaticGeneration();
+            // As requested, start the automatic generation immediately upon selection
+            // without a confirmation dialog. The process is designed to be uninterruptible.
+            runAutomaticGeneration();
+        } else if (mode === 'manual') {
+            // Only allow setting to manual if auto-generation isn't active.
+            // The UI already disables the button, but this is a safeguard.
+            if (!isAutoGenerating) {
+                handleSave({ generationMode: 'manual' });
             }
-        } else {
-            handleSave({ generationMode: 'manual' });
         }
     };
 
@@ -642,6 +649,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                             documents={projectData.documents} 
                             onUpdateDocument={handleUpdateDocumentStatus} 
                             phasesData={projectData.phasesData || {}} 
+                            ai={ai}
                         />;
             case 'Project Tracking':
                 return <ProjectTrackingView 
