@@ -1,6 +1,5 @@
 
 
-
 export const TEMPLATES = [
   {
     id: 'software-dev',
@@ -369,9 +368,9 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         const teamSizeInstruction = TEAM_SIZE_INSTRUCTIONS.roles[teamSize];
         const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
         if (mode === 'minimal') {
-            return `You are a project manager. Your task is to generate a **Resources & Skills List** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nList the absolute minimum roles and tools. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All listed roles and tools must be real and standard for the discipline; do not invent names. Use professional jargon and abbreviations. Use a bulleted list. Be cryptic. All terminology must be specific to the '${discipline}' field.`;
+            return `You are a project manager. Your task is to generate a **Resources & Skills List** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nList the absolute minimum roles and tools. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All listed roles and tools must be real and standard for the discipline; do not invent names. Use professional jargon and abbreviations. Be cryptic. All terminology must be specific to the '${discipline}' field. CRITICAL: Your output MUST contain a section titled "## Required Roles" with a simple, bulleted list of role names.`;
         }
-        return `You are an expert project manager. Your task is to generate a **Resources & Skills List** for a project named "${name}" in the "${discipline}" field. Use the provided high-level project context for guidance on the project's scope and vision.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nCreate a comprehensive list of roles required. ${teamSizeInstruction} ${complexityInstruction} For each role, list the key skills needed. ${subcontractorInstruction} Also list required external partners, software, and hardware tooling in separate bulleted lists. IMPORTANT: The names for all listed resources (skills, roles, software, hardware, partners) must be standard and commonly used in the '${discipline}' industry. Do not invent names. For skills, use names from common job descriptions. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are an expert project manager. Your task is to generate a **Resources & Skills List** for a project named "${name}" in the "${discipline}" field. Use the provided high-level project context for guidance on the project's scope and vision.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nCreate a comprehensive list of roles required. ${teamSizeInstruction} ${complexityInstruction} For each role, list the key skills needed. ${subcontractorInstruction} Also list required external partners, software, and hardware tooling in separate bulleted lists. IMPORTANT: The names for all listed resources (skills, roles, software, hardware, partners) must be standard and commonly used in the '${discipline}' industry. Do not invent names. For skills, use names from common job descriptions. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field. CRITICAL: The final output MUST contain a section titled "## Required Roles". Under this heading, provide a simple bulleted list of role names. Each role name must be on its own line, starting with a hyphen. For example:\n## Required Roles\n- Project Manager\n- Lead Software Engineer\n- UI/UX Designer`;
     },
     phase3: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The analysis must consider risks and opportunities related to using a subcontractor, such as communication overhead (weakness/threat) or specialized expertise (strength/opportunity).' : '';
@@ -457,8 +456,8 @@ ${complexityInstruction}
 - WBS should be 2 levels deep, max.
 - Task list should have 5 tasks, max. Use short names. It MUST include at least one sprint and one 'Review' task. Assign a relevant role to each task.
 - Milestones list should have 2 milestones, max.
-- Do not include any explanations. All terminology must be professional and standard for the '${discipline}' field.
-${subcontractorMinimalInstruction}
+- Do not include any explanations. All terminology must be professional and standard for the '${discipline}' field. ${subcontractorMinimalInstruction}
+CRITICAL: All dates MUST be in YYYY-MM-DD format. Roles must be selected from the provided context.
 
 ## WBS
 - 1.0 Init
@@ -487,7 +486,13 @@ ${context}
 ${teamSizeInstruction}
 ${complexityInstruction}
 
-Generate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). CRITICAL: Assign a relevant role for each task in the 'Role' column (you will have to infer these roles based on the project discipline). The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. The "Dependencies" column must contain the exact "Task Name" of any preceding tasks, or be empty if there are none. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
+CRITICAL INSTRUCTIONS FOR PARSING:
+1.  **Dates**: All dates in the "Start Date" and "End Date" columns for both Tasks and Milestones MUST be in the exact "YYYY-MM-DD" format. Do not use any other format (e.g., "August 1st, 2024"). The dates MUST be valid and sequential.
+2.  **Roles**: The "Role" for each task MUST be selected from the roles defined in the "Resources & Skills List" document provided in the context above. Do not invent new roles. If no specific roles are in the context, infer standard roles for the discipline.
+3.  **Dependencies**: The "Dependencies" column must contain the exact "Task Name" of a preceding task, or be empty. Do not list a task that appears later in the list.
+4.  **Markdown Format**: Adhere strictly to the Markdown table format. Do not add any text outside the specified "## WBS", "## Tasks", and "## Milestones" sections.
+
+Generate the project plan using the following strict Markdown format. The project plan MUST be broken down into a minimum of three distinct sprints (e.g., 'Sprint 1', 'Sprint 2', 'Sprint 3'). The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. Do not include any other text, explanations, or introductory sentences. ${subcontractorInstruction}
 
 Here is an example of the required format:
 ---

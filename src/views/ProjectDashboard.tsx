@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 // FIX: Import GenerateContentResponse to explicitly type API call results.
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
@@ -201,9 +202,11 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
     const [projectData, setProjectData] = useState<any>({ ...project });
     const [loadingPhase, setLoadingPhase] = useState<{ docId: string | null; step: 'generating' | 'compacting' | null }>({ docId: null, step: null });
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('Dashboard');
+    // FIX: Changed initial state to 'Project Phases' as it's always accessible, preventing a confusing initial load on a potentially disabled 'Dashboard' tab.
+    const [activeTab, setActiveTab] = useState('Project Phases');
     const [notificationQueue, setNotificationQueue] = useState([]);
     const [isAutoGenerating, setIsAutoGenerating] = useState(false);
+    const [isParsingPlan, setIsParsingPlan] = useState(false);
     const configuredProjectIdRef = useRef(null);
     const prevDocumentsRef = useRef(project.documents);
 
@@ -232,26 +235,25 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
     }, [projectData.documents]);
 
     const isPlanningComplete = useMemo(() => {
-        // Ensure there are documents to check
         if (!projectData.documents || projectData.documents.length === 0) {
             return false;
         }
-        // Check if EVERY document in the project has been approved.
-        const allDocsApproved = projectData.documents.every(doc => doc.status === 'Approved');
-        
-        // The second condition remains: the project plan must have been parsed and populated tasks.
-        // This is a good indicator that the planning phase is truly over.
-        return allDocsApproved && projectData.tasks && projectData.tasks.length > 0;
-    }, [projectData.documents, projectData.tasks]);
+        // Planning is considered complete when every document has been approved.
+        // The project tracking tools will be populated as a side-effect of the plan document being approved.
+        return projectData.documents.every(doc => doc.status === 'Approved');
+    }, [projectData.documents]);
 
-    const handleSave = (update) => {
-        setProjectData(prevData => {
-            const dataToMerge = typeof update === 'function' ? update(prevData) : update;
-            const newState = { ...prevData, ...dataToMerge };
-            saveProject(newState);
-            return newState;
+    const handleSave = useCallback((update): Promise<any> => {
+        return new Promise(resolve => {
+            setProjectData(prevData => {
+                const dataToMerge = typeof update === 'function' ? update(prevData) : update;
+                const newState = { ...prevData, ...dataToMerge };
+                saveProject(newState);
+                resolve(newState);
+                return newState;
+            });
         });
-    };
+    }, [saveProject]);
 
     const handleTabChange = useCallback((tabName) => {
         setActiveTab(currentTab => {
@@ -261,31 +263,45 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         localStorage.setItem(`hmap-active-tab-${project.id}`, tabName);
     }, [project.id]);
 
+    // FIX: Refactored the effect that sets the initial tab. It now checks if a saved tab is currently locked and defaults to 'Project Phases' if so. This prevents the app from loading into an unusable state.
     useEffect(() => {
-        // Smart navigation: If this is a newly created project, go to the Phases tab.
         const newProjectId = sessionStorage.getItem('hmap-new-project-id');
         if (newProjectId === project.id) {
             handleTabChange('Project Phases');
-            // Clean up the session flag so it doesn't trigger again on refresh.
             sessionStorage.removeItem('hmap-new-project-id');
         } else {
-            // Otherwise, load the last active tab for this project from localStorage.
             const savedTab = localStorage.getItem(`hmap-active-tab-${project.id}`);
-            if (savedTab) {
+            const isSavedTabLocked = !isPlanningComplete && ['Dashboard', 'Project Tracking', 'Revision Control'].includes(savedTab);
+            
+            if (savedTab && !isSavedTabLocked) {
                 setActiveTab(savedTab);
+            } else {
+                // If there's no saved tab, or if the saved tab is now locked, default to the safe 'Project Phases' tab.
+                setActiveTab('Project Phases');
             }
         }
-    }, [project.id, handleTabChange]);
+    }, [project.id, isPlanningComplete, handleTabChange]);
 
-    const parseAndPopulateProjectPlan = () => {
+    const parseAndPopulateProjectPlan = useCallback(async () => {
         const planDocument = projectData.documents.find(d => d.title === 'Detailed Plans (WBS/WRS)');
         const planContent = planDocument ? projectData.phasesData?.[planDocument.id]?.content : undefined;
         
         if (!planContent) return;
     
+        setIsParsingPlan(true);
         logAction('Parse Project Plan', project.name, { planContentLength: planContent.length });
         
         try {
+            // Allow the UI to update and show the spinner before running potentially blocking logic
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            const isValidDateString = (dateStr) => {
+                if (!dateStr || typeof dateStr !== 'string') return false;
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+                const d = new Date(dateStr);
+                return d instanceof Date && !isNaN(d.getTime());
+            };
+            
             const sections = planContent.split('## ').slice(1);
             const tasksSection = sections.find(s => s.trim().toLowerCase().startsWith('tasks'));
             const milestonesSection = sections.find(s => s.trim().toLowerCase().startsWith('milestones'));
@@ -298,12 +314,28 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 const taskNameMap = new Map();
                 parsedTasks = rawTasks.map((t, index) => {
                     const taskId = `task-${Date.now()}-${index}`;
+
+                    const startDate = isValidDateString(t.start_date_yyyy_mm_dd) 
+                        ? t.start_date_yyyy_mm_dd 
+                        : projectData.startDate;
+                    
+                    const endDate = isValidDateString(t.end_date_yyyy_mm_dd) 
+                        ? t.end_date_yyyy_mm_dd 
+                        : startDate;
+
+                    if (!isValidDateString(t.start_date_yyyy_mm_dd)) {
+                        console.warn(`Invalid start date "${t.start_date_yyyy_mm_dd}" for task "${t.task_name}". Using project start date.`);
+                    }
+                    if (!isValidDateString(t.end_date_yyyy_mm_dd)) {
+                        console.warn(`Invalid end date "${t.end_date_yyyy_mm_dd}" for task "${t.task_name}". Using start date.`);
+                    }
+
                     const task = {
                         id: taskId,
                         name: t.task_name,
                         role: t.role || null,
-                        startDate: t.start_date_yyyy_mm_dd,
-                        endDate: t.end_date_yyyy_mm_dd,
+                        startDate: startDate,
+                        endDate: endDate,
                         sprintId: project.sprints.find(s => s.name === t.sprint)?.id || project.sprints[0]?.id,
                         status: 'todo',
                         isSubcontracted: t.subcontractor?.toLowerCase() === 'yes',
@@ -316,22 +348,29 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                     return task;
                 });
     
-                // Resolve dependencies from names to IDs
                 parsedTasks.forEach(task => {
                     task.dependsOn = task.dependsOn
                         .map(depName => taskNameMap.get(depName))
-                        .filter(Boolean); // Filter out any unresolved dependencies
+                        .filter(Boolean);
                 });
             }
     
             if (milestonesSection) {
                 const rawMilestones = parseMarkdownTable(milestonesSection);
-                parsedMilestones = rawMilestones.map((m, index) => ({
-                    id: `milestone-${Date.now()}-${index}`,
-                    name: m.milestone_name,
-                    date: m.date_yyyy_mm_dd,
-                    health: 'On Track',
-                }));
+                parsedMilestones = rawMilestones.map((m, index) => {
+                    const milestoneDate = isValidDateString(m.date_yyyy_mm_dd) ? m.date_yyyy_mm_dd : projectData.startDate;
+                    if (!isValidDateString(m.date_yyyy_mm_dd)) {
+                        console.warn(`Invalid date "${m.date_yyyy_mm_dd}" for milestone "${m.milestone_name}". Using project start date.`);
+                    }
+                    return {
+                        id: `milestone-${Date.now()}-${index}`,
+                        name: m.milestone_name,
+                        plannedDate: milestoneDate,
+                        status: 'Not Started', // 'Not Started', 'In Progress', 'Completed'
+                        actualStartDate: null,
+                        actualCompletedDate: null,
+                    };
+                });
             }
             
             if (parsedTasks.length > 0) {
@@ -339,10 +378,10 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                     return new Date(latest.endDate) > new Date(current.endDate) ? latest : current;
                 });
                 
-                handleSave({ 
+                await handleSave({ 
                     tasks: parsedTasks, 
                     milestones: parsedMilestones, 
-                    endDate: lastTask.endDate, // Update project end date based on plan
+                    endDate: lastTask.endDate,
                 });
                 logAction('Parse Project Plan Success', project.name, { taskCount: parsedTasks.length, milestoneCount: parsedMilestones.length });
                 alert('Project plan successfully parsed and populated in the "Project Tracking" tab.');
@@ -354,8 +393,10 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             console.error("Failed to parse project plan:", e);
             logAction('Parse Project Plan Failure', project.name, { error: e.message });
             alert("Error: Could not parse the project plan from the document. Please check the document's formatting in the 'Project Phases' tab and try again. The document must contain '## Tasks' and '## Milestones' sections with valid Markdown tables.");
+        } finally {
+            setIsParsingPlan(false);
         }
-    };
+    }, [projectData, project.name, project.sprints, handleSave]);
 
     useEffect(() => {
         const planDoc = projectData.documents.find(d => d.title === 'Detailed Plans (WBS/WRS)');
@@ -366,7 +407,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         }
 
         prevDocumentsRef.current = projectData.documents;
-    }, [projectData.documents]);
+    }, [projectData.documents, parseAndPopulateProjectPlan]);
     
     useEffect(() => {
         if (project) {
@@ -374,8 +415,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         }
     }, [project]);
 
-    const handleUpdatePhaseData = (docId: string, content: string, compactedContent: string | undefined | null = undefined) => {
-        handleSave(prevData => {
+    const handleUpdatePhaseData = async (docId: string, content: string, compactedContent: string | undefined | null = undefined) => {
+        await handleSave(prevData => {
             const newPhasesData = { ...prevData.phasesData };
             const currentData = newPhasesData[docId] || { attachments: [] };
 
@@ -391,8 +432,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         });
     };
 
-    const handleCompletePhase = (docId: string, isAuto = false) => {
-        handleSave(prevData => ({
+    const handleCompletePhase = async (docId: string, isAuto = false) => {
+        await handleSave(prevData => ({
             documents: prevData.documents.map(doc =>
                 doc.id === docId ? { ...doc, status: 'Approved' } : doc
             )
@@ -403,34 +444,32 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         logAction('Complete Phase', project.name, { docId });
     };
 
-    const handleGenerateContent = async (docId: string, options: { isAuto?: boolean, currentContent?: string | null } = {}) => {
-        const { isAuto = false, currentContent = null } = options;
-
-        const docToGenerate = projectData.documents.find(d => d.id === docId);
+    const handleGenerateContent = async (docId: string, currentProjectData: any, options: { isAuto?: boolean, currentContent?: string | null } = {}) => {
+        const { currentContent = null } = options;
+    
+        const docToGenerate = currentProjectData.documents.find(d => d.id === docId);
         if (!docToGenerate) {
-            setError('Could not find the document to generate content for.');
-            return;
+            throw new Error('Could not find the document to generate content for.');
         }
-
-        setError('');
+    
         let generatedContent = '';
-        const { name, discipline, mode, scope, teamSize, complexity = 'typical' } = projectData;
+        const { name, discipline, mode, scope, teamSize, complexity = 'typical' } = currentProjectData;
         const docTitle = docToGenerate.title;
-
+    
         // Step 1: Generate human-readable content
         setLoadingPhase({ docId, step: 'generating' });
         try {
             let promptText;
             const promptGenerator = getPromptFunction(docTitle, docToGenerate.phase);
-
+    
             if (promptGenerator === PROMPTS.phase1) {
-                const userInput = currentContent !== null ? currentContent : (projectData.phasesData?.[docId]?.content || '');
-                if (currentContent !== null && userInput !== (projectData.phasesData?.[docId]?.content)) {
-                    handleUpdatePhaseData(docId, userInput, null);
+                const userInput = currentContent !== null ? currentContent : (currentProjectData.phasesData?.[docId]?.content || '');
+                if (currentContent !== null && userInput !== (currentProjectData.phasesData?.[docId]?.content)) {
+                    await handleUpdatePhaseData(docId, userInput, null);
                 }
                 promptText = promptGenerator(name, discipline, userInput, mode, scope, teamSize, complexity);
             } else {
-                const context = getRelevantContext(docToGenerate, projectData.documents, projectData.phasesData);
+                const context = getRelevantContext(docToGenerate, currentProjectData.documents, currentProjectData.phasesData);
                 if (promptGenerator === PROMPTS.phase8_generic) {
                     promptText = promptGenerator(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
                 } else {
@@ -440,8 +479,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             
             const finalPrompt = truncatePrompt(promptText);
             logAction('Generate Content Start', project.name, { docTitle: docToGenerate.title, promptLength: finalPrompt.length });
-
-            // FIX: Explicitly type the response to ensure the 'text' property is accessible.
+    
             const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: finalPrompt,
@@ -451,49 +489,58 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             logAction('Generate Content Success', project.name, { docTitle: docToGenerate.title });
         } catch (err: any) {
             console.error("API Error generating content:", err);
-            setError(`Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`);
+            let userFriendlyError = `Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`;
+            if (err.message && typeof err.message === 'string') {
+                try {
+                    const errorObj = JSON.parse(err.message);
+                    if (errorObj?.error?.status === 'RESOURCE_EXHAUSTED' || errorObj?.error?.code === 429) {
+                        userFriendlyError = `Failed to generate content for "${docToGenerate.title}" due to API rate limiting. Please wait a moment and try again.`;
+                    }
+                } catch (e) { /* Not a JSON error message, proceed with default. */ }
+            }
+            setError(userFriendlyError);
             logAction('Generate Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
             setLoadingPhase({ docId: null, step: null });
-            throw err; // Re-throw to be caught by automatic generation process
+            throw err;
         }
-
-        // Step 2: Compact content for all documents to improve future context quality.
+    
+        // Step 2: Compact content for AI context optimization
         setLoadingPhase({ docId, step: 'compacting' });
-        if (generatedContent.length > MAX_PAYLOAD_CHARS - 1000) {
-            console.warn(`Content for ${docToGenerate.title} is very large (${generatedContent.length} chars). Using a truncated version for context.`);
-            logAction('Compact Content Skipped (Too Large)', project.name, { docTitle: docToGenerate.title, length: generatedContent.length });
-            const truncatedForContext = generatedContent.substring(0, MAX_PAYLOAD_CHARS - 1000) + "\n\n...[CONTENT TRUNCATED FOR CONTEXT DUE TO SIZE LIMITS]...";
-            handleUpdatePhaseData(docId, generatedContent, truncatedForContext);
-            if (!isAuto) {
-                alert('Content generated successfully. NOTE: Due to its large size, a truncated version will be used for future AI context.');
-            }
-            setLoadingPhase({ docId: null, step: null });
-            return;
-        }
-
         try {
-            const compactionPrompt = PROMPTS.compactContent(generatedContent);
-            logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title });
-            // FIX: Explicitly type the response to ensure the 'text' property is accessible.
+            const compactionPromptText = PROMPTS.compactContent(generatedContent);
+            const compactionPrompt = truncatePrompt(compactionPromptText);
+            
+            logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title, promptLength: compactionPrompt.length });
+            
             const compactResponse: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: compactionPrompt,
             }));
+    
             const compactedContent = compactResponse.text;
-            handleUpdatePhaseData(docId, generatedContent, compactedContent);
             logAction('Compact Content Success', project.name, { docTitle: docToGenerate.title });
-            if (!isAuto) {
-                alert('Content generated and compacted successfully.');
-            }
+            return { generatedContent, compactedContent };
         } catch (err: any) {
             console.error("API Error compacting content:", err);
             logAction('Compact Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
-            handleUpdatePhaseData(docId, generatedContent, null); // Save with null compacted content on failure
+            const truncatedForContext = generatedContent.substring(0, MAX_PAYLOAD_CHARS - 2000) + "\n\n...[CONTENT TRUNCATED FOR CONTEXT DUE TO FAILED COMPACTION]...";
+            return { generatedContent, compactedContent: truncatedForContext };
         } finally {
             setLoadingPhase({ docId: null, step: null });
         }
     };
     
+    const handleManualGenerate = async (docId, currentContent) => {
+        setError('');
+        try {
+            const { generatedContent, compactedContent } = await handleGenerateContent(docId, projectData, { currentContent });
+            await handleUpdatePhaseData(docId, generatedContent, compactedContent);
+            alert('Content generated and compacted successfully.');
+        } catch (err) {
+            // Error is already set inside handleGenerateContent
+        }
+    };
+
     const handleAttachFile = (docId, file) => {
         handleSave(prevData => {
             const phaseData = prevData.phasesData[docId] || { content: '', attachments: [] };
@@ -556,66 +603,84 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         handleSave({ team: updatedTeam });
     };
 
+    const handleUpdateMilestone = (milestoneId: string, updatedMilestone: any) => {
+        handleSave(prevData => ({
+            milestones: prevData.milestones.map(m =>
+                m.id === milestoneId ? { ...m, ...updatedMilestone } : m
+            )
+        }));
+    };
+
     const runAutomaticGeneration = async () => {
         setIsAutoGenerating(true);
-        handleSave({ generationMode: 'automatic' }); // Set mode for UI feedback
+        await handleSave({ generationMode: 'automatic' });
 
-        // Get a fresh copy of documents to work with, sorted in processing order
-        const sortedDocs = [...projectData.documents].sort((a, b) => {
-            if (a.phase !== b.phase) return a.phase - b.phase;
-            return a.title.localeCompare(b.title);
-        });
+        let currentProjectData = projectData;
 
-        // Use a functional update with `setProjectData` to ensure we're always working with the latest state.
-        for (const doc of sortedDocs) {
-            // Check the document's current status from the latest state.
-            const latestProjectData: any = await new Promise(resolve => setProjectData(current => {
-                resolve(current);
-                return current;
-            }));
-
-            const docToCheck = latestProjectData.documents.find(d => d.id === doc.id);
-
-            if (docToCheck && docToCheck.status !== 'Approved') {
-                try {
-                    logAction('Auto-generating document', project.name, { docTitle: docToCheck.title });
-                    
-                    // Generate content. This function already handles saving the content to state.
-                    await handleGenerateContent(doc.id, { isAuto: true });
-
-                    // Mark as approved and save to state.
-                    handleCompletePhase(doc.id, true);
-                    
-                    // A brief pause allows the UI to update between steps.
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (err: any) {
-                    alert(`Automatic generation failed on document: "${doc.title}". The process has been stopped. Please review the error, fix any issues (you may need to edit previous documents), and restart the process if needed.`);
-                    logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
-                     handleSave(prevData => ({
-                        documents: prevData.documents.map(d =>
-                            d.id === doc.id ? { ...d, status: 'Failed' } : d
-                        )
-                    }));
-                    break; // Stop the process on failure.
+        try {
+            const sortedDocs = [...currentProjectData.documents].sort((a, b) => {
+                if (a.phase !== b.phase) return a.phase - b.phase;
+                return a.title.localeCompare(b.title);
+            });
+    
+            for (const doc of sortedDocs) {
+                const docToCheck = currentProjectData.documents.find(d => d.id === doc.id);
+    
+                if (docToCheck && docToCheck.status !== 'Approved') {
+                    try {
+                        logAction('Auto-generating document', project.name, { docTitle: docToCheck.title });
+                        
+                        const { generatedContent, compactedContent } = await handleGenerateContent(doc.id, currentProjectData, { isAuto: true });
+                        
+                        currentProjectData = await handleSave(prevData => {
+                            const newPhasesData = { ...prevData.phasesData };
+                            const currentDocData = newPhasesData[doc.id] || { attachments: [] };
+                            currentDocData.content = generatedContent;
+                            currentDocData.compactedContent = compactedContent;
+                            newPhasesData[doc.id] = currentDocData;
+                            
+                            const newDocuments = prevData.documents.map(d => 
+                                d.id === doc.id ? { ...d, status: 'Approved' } : d
+                            );
+    
+                            return { phasesData: newPhasesData, documents: newDocuments };
+                        });
+                        
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } catch (err: any) {
+                        let errorMessage = `Automatic generation failed on document: "${doc.title}". The process has been stopped. Please review the error, fix any issues (you may need to edit previous documents), and restart the process if needed.`;
+                        if (err.message && typeof err.message === 'string') {
+                            try {
+                                const errorObj = JSON.parse(err.message);
+                                if (errorObj?.error?.status === 'RESOURCE_EXHAUSTED' || errorObj?.error?.code === 429) {
+                                    errorMessage = `Automatic generation failed on document: "${doc.title}" due to API rate limiting (too many requests).\n\nThe process has been stopped. Please wait a few minutes before trying again.`;
+                                }
+                            } catch (e) { /* Not a JSON error message, proceed with default. */ }
+                        }
+                        
+                        alert(errorMessage);
+                        logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
+                         await handleSave(prevData => ({
+                            documents: prevData.documents.map(d =>
+                                d.id === doc.id ? { ...d, status: 'Failed' } : d
+                            )
+                        }));
+                        break;
+                    }
                 }
             }
+            alert('Automatic document generation is complete.');
+            logAction('Automatic Generation Complete', project.name, {});
+        } finally {
+            setIsAutoGenerating(false);
+            await handleSave({ generationMode: 'manual' });
         }
-
-        // Finished
-        setIsAutoGenerating(false);
-        handleSave({ generationMode: 'manual' });
-        logAction('Automatic Generation Complete', project.name, {});
-        alert('Automatic document generation is complete.');
     };
 
     const handleSetGenerationMode = (mode) => {
         if (mode === 'automatic' && !isAutoGenerating) {
-            // As requested, start the automatic generation immediately upon selection
-            // without a confirmation dialog. The process is designed to be uninterruptible.
             runAutomaticGeneration();
         } else if (mode === 'manual') {
-            // Only allow setting to manual if auto-generation isn't active.
-            // The UI already disables the button, but this is a safeguard.
             if (!isAutoGenerating) {
                 handleSave({ generationMode: 'manual' });
             }
@@ -636,7 +701,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                             loadingPhase={loadingPhase}
                             handleUpdatePhaseData={handleUpdatePhaseData}
                             handleCompletePhase={handleCompletePhase}
-                            handleGenerateContent={handleGenerateContent}
+                            handleGenerateContent={handleManualGenerate}
                             handleAttachFile={handleAttachFile}
                             handleRemoveAttachment={handleRemoveAttachment}
                             generationMode={projectData.generationMode || 'manual'}
@@ -661,6 +726,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                             projectEndDate={projectData.endDate}
                             onUpdateTask={handleUpdateTask}
                             onUpdateTeam={handleUpdateTeam}
+                            onUpdateMilestone={handleUpdateMilestone}
                         />;
             case 'Revision Control':
                 return <RevisionControlView project={projectData} onUpdateProject={(d) => handleSave(d)} ai={ai} />;
@@ -697,6 +763,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 <button onClick={() => handleTabChange('Documents')} className={activeTab === 'Documents' ? 'active' : ''}>Documents</button>
                 <button onClick={() => handleTabChange('Project Tracking')} className={activeTab === 'Project Tracking' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Project Tracking</button>
                 <button onClick={() => handleTabChange('Revision Control')} className={activeTab === 'Revision Control' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Revision Control</button>
+                {isParsingPlan && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem', color: 'var(--secondary-text)' }} role="status" aria-live="polite">
+                        <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
+                        <span>Parsing Project Plan...</span>
+                    </div>
+                )}
             </nav>
             
             {renderActiveTab()}

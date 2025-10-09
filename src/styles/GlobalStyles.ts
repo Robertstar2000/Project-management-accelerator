@@ -1,5 +1,4 @@
 
-
 export const GlobalStyles = `
   :root {
     --background-color: #0a0a1a;
@@ -611,6 +610,15 @@ export const GlobalStyles = `
     color: var(--accent-color);
     border-bottom-color: var(--accent-color);
   }
+  .dashboard-nav button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--secondary-text) !important;
+  }
+  .dashboard-nav button[disabled]:hover {
+    border-bottom-color: transparent;
+  }
+
 
   /* Tool Specific Styles */
   .tool-grid { display: grid; gap: 1.5rem; }
@@ -701,6 +709,18 @@ export const GlobalStyles = `
     border-radius: 4px;
     margin-left: 0.5rem;
   }
+  .kanban-card .kanban-status-select {
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    color: var(--primary-text);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .kanban-card .kanban-status-select:focus {
+    outline: 1px solid var(--accent-color);
+  }
 
   /* Gantt Chart */
   .gantt-container { overflow-x: auto; padding: 1rem; background-color: var(--background-color); border-radius: 4px; position: relative; }
@@ -774,6 +794,12 @@ export const GlobalStyles = `
   }
   .dependency-select option {
     padding: 0.25rem;
+  }
+  
+  .milestone-planned-date {
+    color: var(--secondary-text);
+    text-decoration: line-through;
+    font-style: italic;
   }
 
   /* Revision Control Tool */

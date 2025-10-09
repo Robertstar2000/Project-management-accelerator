@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { TeamView } from './TeamView';
 
@@ -357,7 +358,7 @@ const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
     );
 };
 
-const KanbanView = ({ tasks }) => {
+const KanbanView = ({ tasks, onUpdateTask }) => {
     if (!tasks || tasks.length === 0) {
         return <p>Kanban board will be populated here once tasks are generated and approved.</p>;
     }
@@ -367,6 +368,11 @@ const KanbanView = ({ tasks }) => {
         review: 'In Review',
         done: 'Done',
     };
+
+    const handleStatusChange = (task, newStatus) => {
+        onUpdateTask(task.id, { ...task, status: newStatus });
+    };
+
     return (
         <div className="kanban-board">
             {Object.entries(columns).map(([statusKey, statusName]) => (
@@ -382,7 +388,21 @@ const KanbanView = ({ tasks }) => {
                             <div className={`kanban-card ${task.status} ${isOverdue ? 'overdue' : ''}`} key={task.id} title={cardTitle}>
                                 {task.isSubcontracted && <span className="subcontractor-label">SUB</span>}
                                 <p>{task.name}</p>
-                                {task.endDate && <small>Due: {new Date(task.endDate).toLocaleDateString()}</small>}
+                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem'}}>
+                                    <small>{task.endDate ? `Due: ${new Date(task.endDate).toLocaleDateString()}` : ''}</small>
+                                    <select 
+                                        value={task.status} 
+                                        onChange={(e) => handleStatusChange(task, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="kanban-status-select"
+                                        aria-label={`Change status for ${task.name}`}
+                                    >
+                                        <option value="todo">To Do</option>
+                                        <option value="inprogress">In Progress</option>
+                                        <option value="review">In Review</option>
+                                        <option value="done">Done</option>
+                                    </select>
+                                </div>
                             </div>
                         );
                     })}
@@ -392,28 +412,98 @@ const KanbanView = ({ tasks }) => {
     );
 };
 
-const MilestonesView = ({ milestones }) => {
-    if (!milestones || milestones.length === 0) {
-        return <p>Milestones will be populated here once the 'Project Timeline' document is approved.</p>;
-    }
+const MilestoneStatusControl = ({ milestone, onUpdateMilestone }) => {
+    const isStarted = milestone.status === 'In Progress' || milestone.status === 'Completed';
+    const isCompleted = milestone.status === 'Completed';
+    const today = new Date().toISOString().split('T')[0];
+
+    const handleStartedChange = (checked) => {
+        if (checked) {
+            onUpdateMilestone(milestone.id, {
+                status: 'In Progress',
+                actualStartDate: milestone.actualStartDate || today,
+            });
+        } else {
+            // Un-starting also un-completes.
+            onUpdateMilestone(milestone.id, {
+                status: 'Not Started',
+                actualStartDate: null,
+                actualCompletedDate: null,
+            });
+        }
+    };
+
+    const handleCompletedChange = (checked) => {
+        if (checked) {
+            onUpdateMilestone(milestone.id, {
+                status: 'Completed',
+                actualCompletedDate: milestone.actualCompletedDate || today,
+            });
+        } else {
+            onUpdateMilestone(milestone.id, {
+                status: 'In Progress',
+                actualCompletedDate: null,
+            });
+        }
+    };
+    
     return (
-        <table className="milestones-table">
-            <thead><tr><th>Milestone</th><th>Due Date</th><th>Health</th><th>Dependency</th></tr></thead>
-            <tbody>
-                {milestones.map(m => (
-                    <tr key={m.id}>
-                        <td>{m.name}</td>
-                        <td>{new Date(m.date).toLocaleDateString()}</td>
-                        <td><span className={`chip ${getHealthChipClass(m.health)}`}>{m.health}</span></td>
-                        <td>{m.dependency || 'N/A'}</td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={isStarted} onChange={(e) => handleStartedChange(e.target.checked)} style={{ transform: 'scale(1.5)' }} aria-label={`Mark ${milestone.name} as started`} />
+                Started
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isStarted ? 'pointer' : 'not-allowed', opacity: isStarted ? 1 : 0.5 }}>
+                <input type="checkbox" checked={isCompleted} disabled={!isStarted} onChange={(e) => handleCompletedChange(e.target.checked)} style={{ transform: 'scale(1.5)' }} aria-label={`Mark ${milestone.name} as completed`}/>
+                Completed
+            </label>
+        </div>
     );
 };
 
-export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask, onUpdateTeam }) => {
+const MilestonesView = ({ milestones, onUpdateMilestone }) => {
+    if (!milestones || milestones.length === 0) {
+        return <p>Milestones will be populated here once the 'Detailed Plans (WBS/WRS)' and 'Project Timeline' documents are approved.</p>;
+    }
+
+    return (
+        <div>
+            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>
+                Track the project's major milestones. These are generated by the AI from your project plan and can be updated here as work progresses.
+            </p>
+            <table className="milestones-table">
+                <thead>
+                    <tr>
+                        <th>Milestone</th>
+                        <th style={{width: '250px'}}>Status</th>
+                        <th>Planned Date</th>
+                        <th>Actual Start</th>
+                        <th>Actual Completion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {milestones.map(milestone => (
+                        <tr key={milestone.id}>
+                            <td><strong>{milestone.name}</strong></td>
+                            <td>
+                                <MilestoneStatusControl milestone={milestone} onUpdateMilestone={onUpdateMilestone} />
+                            </td>
+                            <td>
+                                <span className={milestone.actualStartDate ? 'milestone-planned-date' : ''}>
+                                    {milestone.plannedDate}
+                                </span>
+                            </td>
+                            <td>{milestone.actualStartDate || '—'}</td>
+                            <td>{milestone.actualCompletedDate || '—'}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask, onUpdateTeam, onUpdateMilestone }) => {
     const [view, setView] = useState(() => {
         return localStorage.getItem(`hmap-tracking-view-${project.id}`) || 'Timeline';
     });
@@ -430,9 +520,9 @@ export const ProjectTrackingView = ({ project, tasks, sprints, milestones, proje
             case 'Task List':
                 return <TaskListView tasks={tasks} onUpdateTask={onUpdateTask} team={project.team || []} />;
             case 'Kanban':
-                return <KanbanView tasks={tasks} />;
+                return <KanbanView tasks={tasks} onUpdateTask={onUpdateTask} />;
             case 'Milestones':
-                return <MilestonesView milestones={milestones} />;
+                return <MilestonesView milestones={milestones} onUpdateMilestone={onUpdateMilestone} />;
             case 'Team':
                 return <TeamView project={project} onUpdateTeam={onUpdateTeam} />;
             default:

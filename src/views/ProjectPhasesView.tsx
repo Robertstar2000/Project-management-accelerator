@@ -59,12 +59,6 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
 
     let lastPhase = -1;
 
-    // This wrapper ensures PhaseCard only needs to care about passing its content,
-    // not about the other options `handleGenerateContent` might take.
-    const handleManualGenerate = (docId, currentContent) => {
-        handleGenerateContent(docId, { currentContent });
-    };
-
     return (
         <div>
             {error && <div className="status-message error">{error}</div>}
@@ -138,7 +132,7 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
                             updatePhaseData={handleUpdatePhaseData}
                             isLocked={isLocked}
                             lockReason={lockReason}
-                            onGenerate={handleManualGenerate}
+                            onGenerate={handleGenerateContent}
                             onComplete={handleCompletePhase}
                             onAttachFile={handleAttachFile}
                             onRemoveAttachment={handleRemoveAttachment}

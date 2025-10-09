@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const DashboardView = ({ project, phasesData, isPlanningComplete, projectPhases }) => {
@@ -12,6 +13,29 @@ export const DashboardView = ({ project, phasesData, isPlanningComplete, project
         );
     }
 
+    const { tasks = [], documents = [], milestones = [] } = project;
+
+    // Calculate dynamic metrics
+    const overdueTasks = tasks.filter(t => t.status !== 'done' && new Date(t.endDate) < new Date()).length;
+    
+    const blockedTasks = tasks.filter(task => 
+        task.status !== 'done' && 
+        task.dependsOn?.some(depId => {
+            const prereq = tasks.find(t => t.id === depId);
+            return prereq && prereq.status !== 'done';
+        })
+    ).length;
+
+    const pendingApprovals = documents.filter(d => ['Working', 'Rejected'].includes(d.status)).length;
+    
+    const openScopeChanges = documents.filter(d => d.title.toLowerCase().includes('change request') && d.status !== 'Approved').length;
+    
+    let riskExposure = 'Low';
+    if (overdueTasks > 5) riskExposure = 'High';
+    else if (overdueTasks > 0) riskExposure = 'Medium';
+    
+    const riskExposureClass = riskExposure === 'High' ? 'red' : riskExposure === 'Medium' ? 'amber' : 'green';
+
     // FIX: Explicitly type 'p' as 'any' to resolve 'unknown' type from Object.values(), allowing property access.
     const completedPhases = Object.values(phasesData).filter((p: any) => p.status === 'completed').length;
     const inProgressPhase = projectPhases.find((p, i) => {
@@ -20,7 +44,10 @@ export const DashboardView = ({ project, phasesData, isPlanningComplete, project
         return !isComplete && isPrevComplete;
     });
 
-    const nextMilestone = project.milestones?.find(m => new Date(m.date) >= new Date());
+    const nextMilestone = milestones
+        .filter(m => m.status !== 'Completed')
+        .sort((a, b) => new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime())[0];
+
 
     return (
         <div className="tool-grid" style={{ gridTemplateColumns: '3fr 1fr', alignItems: 'start' }}>
@@ -30,9 +57,14 @@ export const DashboardView = ({ project, phasesData, isPlanningComplete, project
                     <div className="kpi-grid">
                         <div className="kpi-card"><h4>Budget</h4><p className="value green">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(project.budget || 0)}</p></div>
                         <div className="kpi-card"><h4>End Date</h4><p className="value" style={{ fontSize: '1.5rem' }}>{project.endDate}</p></div>
-                        <div className="kpi-card"><h4>Scope Changes</h4><p className="value amber">2 Open</p></div>
-                        <div className="kpi-card"><h4>Risk Exposure</h4><p className="value red">High</p></div>
-                        <div className="kpi-card"><h4>Next Milestone</h4><p className="value" style={{ fontSize: '1.5rem' }}>{nextMilestone ? new Date(nextMilestone.date).toLocaleDateString() : 'N/A'}</p></div>
+                        <div className="kpi-card"><h4>Scope Changes</h4><p className={`value ${openScopeChanges > 0 ? 'amber' : ''}`}>{openScopeChanges} Open</p></div>
+                        <div className="kpi-card"><h4>Risk Exposure</h4><p className={`value ${riskExposureClass}`}>{riskExposure}</p></div>
+                        <div className="kpi-card">
+                            <h4>Next Milestone</h4>
+                            <p className="value" style={{ fontSize: nextMilestone?.name.length > 15 ? '1.2rem' : '1.5rem' }}>
+                                {nextMilestone ? `${nextMilestone.name} (${new Date(nextMilestone.plannedDate).toLocaleDateString()})` : 'N/A'}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div className="tool-card">
@@ -64,10 +96,10 @@ export const DashboardView = ({ project, phasesData, isPlanningComplete, project
             <div className="tool-grid">
                 <div className="tool-card">
                     <h3 className="subsection-title">Alerts</h3>
-                    <ul>
-                        <li>2 Overdue tasks</li>
-                        <li>1 Blocked item</li>
-                        <li>3 Pending approvals</li>
+                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <li style={{ color: overdueTasks > 0 ? 'var(--status-red)' : 'inherit' }}>{overdueTasks} Overdue tasks</li>
+                        <li style={{ color: blockedTasks > 0 ? 'var(--status-amber)' : 'inherit' }}>{blockedTasks} Blocked item(s)</li>
+                        <li style={{ color: pendingApprovals > 0 ? 'var(--status-amber)' : 'inherit' }}>{pendingApprovals} Pending approvals</li>
                     </ul>
                 </div>
                 <div className="tool-card">
