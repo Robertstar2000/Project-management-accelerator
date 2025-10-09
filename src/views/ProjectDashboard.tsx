@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 // FIX: Import GenerateContentResponse to explicitly type API call results.
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
@@ -238,8 +239,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         if (!projectData.documents || projectData.documents.length === 0) {
             return false;
         }
-        // Planning is considered complete when every document has been approved.
-        // The project tracking tools will be populated as a side-effect of the plan document being approved.
         return projectData.documents.every(doc => doc.status === 'Approved');
     }, [projectData.documents]);
 
@@ -263,7 +262,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         localStorage.setItem(`hmap-active-tab-${project.id}`, tabName);
     }, [project.id]);
 
-    // FIX: Refactored the effect that sets the initial tab. It now checks if a saved tab is currently locked and defaults to 'Project Phases' if so. This prevents the app from loading into an unusable state.
     useEffect(() => {
         const newProjectId = sessionStorage.getItem('hmap-new-project-id');
         if (newProjectId === project.id) {
@@ -276,11 +274,187 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
             if (savedTab && !isSavedTabLocked) {
                 setActiveTab(savedTab);
             } else {
-                // If there's no saved tab, or if the saved tab is now locked, default to the safe 'Project Phases' tab.
                 setActiveTab('Project Phases');
             }
         }
     }, [project.id, isPlanningComplete, handleTabChange]);
+
+    const handleUpdatePhaseData = useCallback(async (docId: string, content: string, compactedContent: string | null = undefined) => {
+        return await handleSave(prevData => {
+            const newPhasesData = { ...prevData.phasesData };
+            const currentData = newPhasesData[docId] || { attachments: [] };
+    
+            if (compactedContent === undefined && content !== currentData.content) {
+                currentData.compactedContent = null;
+            } else if (compactedContent !== undefined) {
+                currentData.compactedContent = compactedContent;
+            }
+            
+            currentData.content = content;
+            newPhasesData[docId] = currentData;
+            
+            return { phasesData: newPhasesData };
+        });
+    }, [handleSave]);
+
+    const handleUpdateDocument = useCallback(async (docId: string, status: string) => {
+        const updatedDocs = projectData.documents.map(d => 
+            d.id === docId ? { ...d, status } : d
+        );
+        return await handleSave({ documents: updatedDocs });
+    }, [projectData.documents, handleSave]);
+    
+    const handleCompletePhase = useCallback(async (docId: string) => {
+        return handleUpdateDocument(docId, 'Approved');
+    }, [handleUpdateDocument]);
+
+    const handleGenerateContent = useCallback(async (docId: string, userInput: string) => {
+        setLoadingPhase({ docId, step: 'generating' });
+        setError('');
+        logAction('Generate Content Start', docId, { docId });
+        let updatedProject = projectData;
+    
+        try {
+            const docToGenerate = projectData.documents.find(d => d.id === docId);
+            if (!docToGenerate) throw new Error("Document not found");
+    
+            const context = getRelevantContext(docToGenerate, projectData.documents, projectData.phasesData);
+            const promptFn = getPromptFunction(docToGenerate.title, docToGenerate.phase);
+            
+            let promptText;
+            if (promptFn === PROMPTS.phase8_generic) {
+                promptText = promptFn(docToGenerate.title, projectData.name, projectData.discipline, context, projectData.mode, projectData.scope, projectData.teamSize, projectData.complexity);
+            } else if (promptFn === PROMPTS.phase1) {
+                promptText = promptFn(projectData.name, projectData.discipline, userInput, projectData.mode, projectData.scope, projectData.teamSize, projectData.complexity);
+            } else {
+                 promptText = promptFn(projectData.name, projectData.discipline, context, projectData.mode, projectData.scope, projectData.teamSize, projectData.complexity);
+            }
+            
+            const prompt = truncatePrompt(promptText);
+    
+            const generateCall = () => ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+            const result: GenerateContentResponse = await withRetry(generateCall);
+            const newContent = result.text;
+            
+            updatedProject = await handleUpdatePhaseData(docId, newContent);
+            logAction('Generate Content Success', docId, { docId });
+    
+            if (updatedProject.generationMode === 'manual') {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            setLoadingPhase({ docId, step: 'compacting' });
+            
+            const compactPrompt = PROMPTS.compactContent(newContent);
+            const compactCall = () => ai.models.generateContent({ model: 'gemini-2.5-flash', contents: compactPrompt });
+            const compactResult: GenerateContentResponse = await withRetry(compactCall);
+            const compactedContent = compactResult.text;
+    
+            updatedProject = await handleUpdatePhaseData(docId, newContent, compactedContent);
+            logAction('Compact Content Success', docId, { docId });
+            
+            return { success: true, updatedProject };
+    
+        } catch (err: any) {
+            console.error("Failed to generate content:", err);
+            const docTitle = projectData.documents.find(d => d.id === docId)?.title || 'the document';
+            setError(`Failed to generate content for ${docTitle}. ${err.message}`);
+            logAction('Generate Content Failure', docId, { docId, error: err.message });
+            
+            updatedProject = await handleUpdateDocument(docId, 'Failed');
+            return { success: false, updatedProject };
+        } finally {
+            setLoadingPhase({ docId: null, step: null });
+        }
+    }, [ai, projectData, handleUpdatePhaseData, handleUpdateDocument]);
+
+    const runAutomaticGeneration = useCallback(async () => {
+        if (isAutoGenerating) return;
+        setIsAutoGenerating(true);
+        setError('');
+        logAction('Automatic Generation Start', project.name, {});
+    
+        const projectDataRef = useRef(projectData);
+        projectDataRef.current = projectData;
+
+        const sortedDocs = [...projectDataRef.current.documents].sort((a, b) => {
+            if (a.phase !== b.phase) return a.phase - b.phase;
+            return a.title.localeCompare(b.title);
+        });
+    
+        try {
+            for (const doc of sortedDocs) {
+                const currentDocFromRef = projectDataRef.current.documents.find(d => d.id === doc.id);
+    
+                if (currentDocFromRef && currentDocFromRef.status === 'Approved') {
+                    continue;
+                }
+    
+                const { success, updatedProject: projectAfterGen } = await handleGenerateContent(doc.id, projectDataRef.current.phasesData[doc.id]?.content || '');
+                projectDataRef.current = projectAfterGen; // Update ref after generation
+    
+                if (!success) {
+                    throw new Error(`Generation failed for "${doc.title}". Halting automatic process.`);
+                }
+    
+                const projectAfterComplete = await handleCompletePhase(doc.id);
+                projectDataRef.current = projectAfterComplete; // Update ref after approval
+            }
+            logAction('Automatic Generation Success', project.name, {});
+            alert('Automatic document generation complete! Please review the generated documents.');
+        } catch (err: any) {
+            console.error("Automatic generation failed:", err);
+            setError(err.message);
+            logAction('Automatic Generation Failure', project.name, { error: err.message });
+            alert(err.message);
+        } finally {
+            setIsAutoGenerating(false);
+        }
+    }, [isAutoGenerating, project.name, projectData, handleGenerateContent, handleCompletePhase]);
+
+    const handleSetGenerationMode = useCallback((mode: 'manual' | 'automatic') => {
+        handleSave({ generationMode: mode });
+        if (mode === 'automatic' && !isAutoGenerating) {
+            runAutomaticGeneration();
+        }
+    }, [handleSave, isAutoGenerating, runAutomaticGeneration]);
+
+    const handleAttachFile = useCallback(async (docId: string, fileData: { name: string; data: string; }) => {
+        await handleSave(prevData => {
+            const newPhasesData = { ...prevData.phasesData };
+            const currentData = newPhasesData[docId] || { content: '', attachments: [] };
+            currentData.attachments = [...(currentData.attachments || []), fileData];
+            newPhasesData[docId] = currentData;
+            return { phasesData: newPhasesData };
+        });
+    }, [handleSave]);
+
+    const handleRemoveAttachment = useCallback(async (docId: string, fileName: string) => {
+        await handleSave(prevData => {
+            const newPhasesData = { ...prevData.phasesData };
+            const currentData = newPhasesData[docId];
+            if (currentData) {
+                currentData.attachments = currentData.attachments.filter(f => f.name !== fileName);
+                newPhasesData[docId] = currentData;
+            }
+            return { phasesData: newPhasesData };
+        });
+    }, [handleSave]);
+
+    const handleUpdateTask = useCallback((taskId, updatedTaskData) => {
+        const updatedTasks = projectData.tasks.map(t => t.id === taskId ? { ...t, ...updatedTaskData } : t);
+        handleSave({ tasks: updatedTasks });
+    }, [projectData.tasks, handleSave]);
+    
+    const handleUpdateMilestone = useCallback((milestoneId, updatedMilestoneData) => {
+        const updatedMilestones = projectData.milestones.map(m =>
+            m.id === milestoneId ? { ...m, ...updatedMilestoneData } : m
+        );
+        handleSave({ milestones: updatedMilestones });
+    }, [projectData.milestones, handleSave]);
+
+    const handleUpdateTeam = useCallback((newTeam) => {
+        handleSave({ team: newTeam });
+    }, [handleSave]);
 
     const parseAndPopulateProjectPlan = useCallback(async () => {
         const planDocument = projectData.documents.find(d => d.title === 'Detailed Plans (WBS/WRS)');
@@ -292,7 +466,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         logAction('Parse Project Plan', project.name, { planContentLength: planContent.length });
         
         try {
-            // Allow the UI to update and show the spinner before running potentially blocking logic
             await new Promise(resolve => setTimeout(resolve, 50));
             
             const isValidDateString = (dateStr) => {
@@ -315,43 +488,25 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 parsedTasks = rawTasks.map((t, index) => {
                     const taskId = `task-${Date.now()}-${index}`;
 
-                    const startDate = isValidDateString(t.start_date_yyyy_mm_dd) 
-                        ? t.start_date_yyyy_mm_dd 
-                        : projectData.startDate;
-                    
-                    const endDate = isValidDateString(t.end_date_yyyy_mm_dd) 
-                        ? t.end_date_yyyy_mm_dd 
-                        : startDate;
+                    const startDate = isValidDateString(t.start_date_yyyy_mm_dd) ? t.start_date_yyyy_mm_dd : projectData.startDate;
+                    const endDate = isValidDateString(t.end_date_yyyy_mm_dd) ? t.end_date_yyyy_mm_dd : startDate;
 
-                    if (!isValidDateString(t.start_date_yyyy_mm_dd)) {
-                        console.warn(`Invalid start date "${t.start_date_yyyy_mm_dd}" for task "${t.task_name}". Using project start date.`);
-                    }
-                    if (!isValidDateString(t.end_date_yyyy_mm_dd)) {
-                        console.warn(`Invalid end date "${t.end_date_yyyy_mm_dd}" for task "${t.task_name}". Using start date.`);
-                    }
+                    if (!isValidDateString(t.start_date_yyyy_mm_dd)) console.warn(`Invalid start date for task "${t.task_name}".`);
+                    if (!isValidDateString(t.end_date_yyyy_mm_dd)) console.warn(`Invalid end date for task "${t.task_name}".`);
 
                     const task = {
-                        id: taskId,
-                        name: t.task_name,
-                        role: t.role || null,
-                        startDate: startDate,
-                        endDate: endDate,
+                        id: taskId, name: t.task_name, role: t.role || null, startDate, endDate,
                         sprintId: project.sprints.find(s => s.name === t.sprint)?.id || project.sprints[0]?.id,
-                        status: 'todo',
-                        isSubcontracted: t.subcontractor?.toLowerCase() === 'yes',
+                        status: 'todo', isSubcontracted: t.subcontractor?.toLowerCase() === 'yes',
                         dependsOn: t.dependencies ? t.dependencies.split(',').map(d => d.trim()) : [],
-                        actualTime: null,
-                        actualCost: null,
-                        actualEndDate: null,
+                        actualTime: null, actualCost: null, actualEndDate: null,
                     };
                     taskNameMap.set(task.name, taskId);
                     return task;
                 });
     
                 parsedTasks.forEach(task => {
-                    task.dependsOn = task.dependsOn
-                        .map(depName => taskNameMap.get(depName))
-                        .filter(Boolean);
+                    task.dependsOn = task.dependsOn.map(depName => taskNameMap.get(depName)).filter(Boolean);
                 });
             }
     
@@ -359,30 +514,17 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 const rawMilestones = parseMarkdownTable(milestonesSection);
                 parsedMilestones = rawMilestones.map((m, index) => {
                     const milestoneDate = isValidDateString(m.date_yyyy_mm_dd) ? m.date_yyyy_mm_dd : projectData.startDate;
-                    if (!isValidDateString(m.date_yyyy_mm_dd)) {
-                        console.warn(`Invalid date "${m.date_yyyy_mm_dd}" for milestone "${m.milestone_name}". Using project start date.`);
-                    }
+                    if (!isValidDateString(m.date_yyyy_mm_dd)) console.warn(`Invalid date for milestone "${m.milestone_name}".`);
                     return {
-                        id: `milestone-${Date.now()}-${index}`,
-                        name: m.milestone_name,
-                        plannedDate: milestoneDate,
-                        status: 'Not Started', // 'Not Started', 'In Progress', 'Completed'
-                        actualStartDate: null,
-                        actualCompletedDate: null,
+                        id: `milestone-${Date.now()}-${index}`, name: m.milestone_name, plannedDate: milestoneDate,
+                        status: 'Not Started', actualStartDate: null, actualCompletedDate: null,
                     };
                 });
             }
             
             if (parsedTasks.length > 0) {
-                const lastTask = parsedTasks.reduce((latest, current) => {
-                    return new Date(latest.endDate) > new Date(current.endDate) ? latest : current;
-                });
-                
-                await handleSave({ 
-                    tasks: parsedTasks, 
-                    milestones: parsedMilestones, 
-                    endDate: lastTask.endDate,
-                });
+                const lastTask = parsedTasks.reduce((latest, current) => new Date(latest.endDate) > new Date(current.endDate) ? latest : current);
+                await handleSave({ tasks: parsedTasks, milestones: parsedMilestones, endDate: lastTask.endDate });
                 logAction('Parse Project Plan Success', project.name, { taskCount: parsedTasks.length, milestoneCount: parsedMilestones.length });
                 alert('Project plan successfully parsed and populated in the "Project Tracking" tab.');
             } else {
@@ -392,7 +534,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         } catch (e: any) {
             console.error("Failed to parse project plan:", e);
             logAction('Parse Project Plan Failure', project.name, { error: e.message });
-            alert("Error: Could not parse the project plan from the document. Please check the document's formatting in the 'Project Phases' tab and try again. The document must contain '## Tasks' and '## Milestones' sections with valid Markdown tables.");
+            alert("Error: Could not parse the project plan. Please check the document's formatting.");
         } finally {
             setIsParsingPlan(false);
         }
@@ -415,376 +557,65 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
         }
     }, [project]);
 
-    const handleUpdatePhaseData = async (docId: string, content: string, compactedContent: string | undefined | null = undefined) => {
-        await handleSave(prevData => {
-            const newPhasesData = { ...prevData.phasesData };
-            const currentData = newPhasesData[docId] || { attachments: [] };
-
-            if (compactedContent === undefined && content !== currentData.content) {
-                currentData.compactedContent = null;
-            } else if (compactedContent !== undefined) {
-                currentData.compactedContent = compactedContent;
-            }
-            
-            currentData.content = content;
-            newPhasesData[docId] = currentData;
-            return { phasesData: newPhasesData };
-        });
-    };
-
-    const handleCompletePhase = async (docId: string, isAuto = false) => {
-        await handleSave(prevData => ({
-            documents: prevData.documents.map(doc =>
-                doc.id === docId ? { ...doc, status: 'Approved' } : doc
-            )
-        }));
-        if (!isAuto) {
-            alert(`Document marked as "Approved". You can now proceed to the next phase.`);
-        }
-        logAction('Complete Phase', project.name, { docId });
-    };
-
-    const handleGenerateContent = async (docId: string, currentProjectData: any, options: { isAuto?: boolean, currentContent?: string | null } = {}) => {
-        const { currentContent = null } = options;
-    
-        const docToGenerate = currentProjectData.documents.find(d => d.id === docId);
-        if (!docToGenerate) {
-            throw new Error('Could not find the document to generate content for.');
-        }
-    
-        let generatedContent = '';
-        const { name, discipline, mode, scope, teamSize, complexity = 'typical' } = currentProjectData;
-        const docTitle = docToGenerate.title;
-    
-        // Step 1: Generate human-readable content
-        setLoadingPhase({ docId, step: 'generating' });
-        try {
-            let promptText;
-            const promptGenerator = getPromptFunction(docTitle, docToGenerate.phase);
-    
-            if (promptGenerator === PROMPTS.phase1) {
-                const userInput = currentContent !== null ? currentContent : (currentProjectData.phasesData?.[docId]?.content || '');
-                if (currentContent !== null && userInput !== (currentProjectData.phasesData?.[docId]?.content)) {
-                    await handleUpdatePhaseData(docId, userInput, null);
-                }
-                promptText = promptGenerator(name, discipline, userInput, mode, scope, teamSize, complexity);
-            } else {
-                const context = getRelevantContext(docToGenerate, currentProjectData.documents, currentProjectData.phasesData);
-                if (promptGenerator === PROMPTS.phase8_generic) {
-                    promptText = promptGenerator(docTitle, name, discipline, context, mode, scope, teamSize, complexity);
-                } else {
-                    promptText = promptGenerator(name, discipline, context, mode, scope, teamSize, complexity);
-                }
-            }
-            
-            const finalPrompt = truncatePrompt(promptText);
-            logAction('Generate Content Start', project.name, { docTitle: docToGenerate.title, promptLength: finalPrompt.length });
-    
-            const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: finalPrompt,
-            }));
-            
-            generatedContent = response.text;
-            logAction('Generate Content Success', project.name, { docTitle: docToGenerate.title });
-        } catch (err: any) {
-            console.error("API Error generating content:", err);
-            let userFriendlyError = `Failed to generate content for ${docToGenerate.title}. Please check the console and try again.`;
-            if (err.message && typeof err.message === 'string') {
-                try {
-                    const errorObj = JSON.parse(err.message);
-                    if (errorObj?.error?.status === 'RESOURCE_EXHAUSTED' || errorObj?.error?.code === 429) {
-                        userFriendlyError = `Failed to generate content for "${docToGenerate.title}" due to API rate limiting. Please wait a moment and try again.`;
-                    }
-                } catch (e) { /* Not a JSON error message, proceed with default. */ }
-            }
-            setError(userFriendlyError);
-            logAction('Generate Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
-            setLoadingPhase({ docId: null, step: null });
-            throw err;
-        }
-    
-        // Step 2: Compact content for AI context optimization
-        setLoadingPhase({ docId, step: 'compacting' });
-        try {
-            const compactionPromptText = PROMPTS.compactContent(generatedContent);
-            const compactionPrompt = truncatePrompt(compactionPromptText);
-            
-            logAction('Compact Content Start', project.name, { docTitle: docToGenerate.title, promptLength: compactionPrompt.length });
-            
-            const compactResponse: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: compactionPrompt,
-            }));
-    
-            const compactedContent = compactResponse.text;
-            logAction('Compact Content Success', project.name, { docTitle: docToGenerate.title });
-            return { generatedContent, compactedContent };
-        } catch (err: any) {
-            console.error("API Error compacting content:", err);
-            logAction('Compact Content Failure', project.name, { docTitle: docToGenerate.title, error: err.message });
-            const truncatedForContext = generatedContent.substring(0, MAX_PAYLOAD_CHARS - 2000) + "\n\n...[CONTENT TRUNCATED FOR CONTEXT DUE TO FAILED COMPACTION]...";
-            return { generatedContent, compactedContent: truncatedForContext };
-        } finally {
-            setLoadingPhase({ docId: null, step: null });
-        }
-    };
-    
-    const handleManualGenerate = async (docId, currentContent) => {
-        setError('');
-        try {
-            const { generatedContent, compactedContent } = await handleGenerateContent(docId, projectData, { currentContent });
-            await handleUpdatePhaseData(docId, generatedContent, compactedContent);
-            alert('Content generated and compacted successfully.');
-        } catch (err) {
-            // Error is already set inside handleGenerateContent
-        }
-    };
-
-    const handleAttachFile = (docId, file) => {
-        handleSave(prevData => {
-            const phaseData = prevData.phasesData[docId] || { content: '', attachments: [] };
-            const updatedAttachments = [...phaseData.attachments, file];
-            const newPhasesData = { ...prevData.phasesData, [docId]: { ...phaseData, attachments: updatedAttachments } };
-            return { phasesData: newPhasesData };
-        });
-    };
-
-    const handleRemoveAttachment = (docId, fileName) => {
-        handleSave(prevData => {
-            const phaseData = prevData.phasesData[docId];
-            if (phaseData) {
-                const updatedAttachments = phaseData.attachments.filter(f => f.name !== fileName);
-                const newPhasesData = { ...prevData.phasesData, [docId]: { ...phaseData, attachments: updatedAttachments } };
-                return { phasesData: newPhasesData };
-            }
-            return {};
-        });
-    };
-    
-    const handleUpdateDocumentStatus = (docId: string, newStatus: string) => {
-        handleSave(prevData => ({
-            documents: prevData.documents.map(doc => 
-                doc.id === docId ? { ...doc, status: newStatus } : doc
-            )
-        }));
-    };
-    
-    const handleUpdateTask = (taskId: string, updatedTask: any) => {
-        setProjectData(prevData => {
-            const updatedTasks = prevData.tasks.map(t => t.id === taskId ? updatedTask : t);
-            const newState = { ...prevData, tasks: updatedTasks };
-            saveProject(newState);
-
-            if (updatedTask.status === 'done') {
-                const dependentTasks = prevData.tasks.filter(t => t.dependsOn?.includes(taskId));
-                dependentTasks.forEach(dependentTask => {
-                    const isReady = dependentTask.dependsOn.every(depId => {
-                        const prereq = updatedTasks.find(t => t.id === depId);
-                        return prereq && prereq.status === 'done';
-                    });
-                    if (isReady) {
-                        const assignedPerson = prevData.team.find(p => p.role === dependentTask.role);
-                        if (assignedPerson && assignedPerson.email) {
-                            setNotificationQueue(prevQueue => [...prevQueue, {
-                                recipientName: assignedPerson.name,
-                                recipientEmail: assignedPerson.email,
-                                taskName: dependentTask.name,
-                            }]);
-                        }
-                    }
-                });
-            }
-            return newState;
-        });
-    };
-    
-    const handleUpdateTeam = (updatedTeam) => {
-        handleSave({ team: updatedTeam });
-    };
-
-    const handleUpdateMilestone = (milestoneId: string, updatedMilestone: any) => {
-        handleSave(prevData => ({
-            milestones: prevData.milestones.map(m =>
-                m.id === milestoneId ? { ...m, ...updatedMilestone } : m
-            )
-        }));
-    };
-
-    const runAutomaticGeneration = async () => {
-        setIsAutoGenerating(true);
-        await handleSave({ generationMode: 'automatic' });
-
-        let currentProjectData = projectData;
-
-        try {
-            const sortedDocs = [...currentProjectData.documents].sort((a, b) => {
-                if (a.phase !== b.phase) return a.phase - b.phase;
-                return a.title.localeCompare(b.title);
-            });
-    
-            for (const doc of sortedDocs) {
-                const docToCheck = currentProjectData.documents.find(d => d.id === doc.id);
-    
-                if (docToCheck && docToCheck.status !== 'Approved') {
-                    try {
-                        logAction('Auto-generating document', project.name, { docTitle: docToCheck.title });
-                        
-                        const { generatedContent, compactedContent } = await handleGenerateContent(doc.id, currentProjectData, { isAuto: true });
-                        
-                        currentProjectData = await handleSave(prevData => {
-                            const newPhasesData = { ...prevData.phasesData };
-                            const currentDocData = newPhasesData[doc.id] || { attachments: [] };
-                            currentDocData.content = generatedContent;
-                            currentDocData.compactedContent = compactedContent;
-                            newPhasesData[doc.id] = currentDocData;
-                            
-                            const newDocuments = prevData.documents.map(d => 
-                                d.id === doc.id ? { ...d, status: 'Approved' } : d
-                            );
-    
-                            return { phasesData: newPhasesData, documents: newDocuments };
-                        });
-                        
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    } catch (err: any) {
-                        let errorMessage = `Automatic generation failed on document: "${doc.title}". The process has been stopped. Please review the error, fix any issues (you may need to edit previous documents), and restart the process if needed.`;
-                        if (err.message && typeof err.message === 'string') {
-                            try {
-                                const errorObj = JSON.parse(err.message);
-                                if (errorObj?.error?.status === 'RESOURCE_EXHAUSTED' || errorObj?.error?.code === 429) {
-                                    errorMessage = `Automatic generation failed on document: "${doc.title}" due to API rate limiting (too many requests).\n\nThe process has been stopped. Please wait a few minutes before trying again.`;
-                                }
-                            } catch (e) { /* Not a JSON error message, proceed with default. */ }
-                        }
-                        
-                        alert(errorMessage);
-                        logAction('Automatic Generation Halted', project.name, { failedOn: doc.title, error: err.message });
-                         await handleSave(prevData => ({
-                            documents: prevData.documents.map(d =>
-                                d.id === doc.id ? { ...d, status: 'Failed' } : d
-                            )
-                        }));
-                        break;
-                    }
-                }
-            }
-            alert('Automatic document generation is complete.');
-            logAction('Automatic Generation Complete', project.name, {});
-        } finally {
-            setIsAutoGenerating(false);
-            await handleSave({ generationMode: 'manual' });
-        }
-    };
-
-    const handleSetGenerationMode = (mode) => {
-        if (mode === 'automatic' && !isAutoGenerating) {
-            runAutomaticGeneration();
-        } else if (mode === 'manual') {
-            if (!isAutoGenerating) {
-                handleSave({ generationMode: 'manual' });
-            }
-        }
-    };
-
     const renderActiveTab = () => {
         switch (activeTab) {
             case 'Dashboard':
                 return <DashboardView project={projectData} phasesData={projectData.phasesData || {}} isPlanningComplete={isPlanningComplete} projectPhases={projectPhases} />;
             case 'Project Phases':
-                return <ProjectPhasesView 
-                            project={projectData} 
-                            projectPhases={projectPhases}
-                            phasesData={projectData.phasesData || {}}
-                            documents={projectData.documents}
-                            error={error}
-                            loadingPhase={loadingPhase}
-                            handleUpdatePhaseData={handleUpdatePhaseData}
-                            handleCompletePhase={handleCompletePhase}
-                            handleGenerateContent={handleManualGenerate}
-                            handleAttachFile={handleAttachFile}
-                            handleRemoveAttachment={handleRemoveAttachment}
-                            generationMode={projectData.generationMode || 'manual'}
-                            onSetGenerationMode={handleSetGenerationMode}
-                            isAutoGenerating={isAutoGenerating}
-                        />;
+                return <ProjectPhasesView
+                    project={projectData}
+                    projectPhases={projectPhases}
+                    phasesData={projectData.phasesData || {}}
+                    documents={projectData.documents}
+                    error={error}
+                    loadingPhase={loadingPhase}
+                    handleUpdatePhaseData={handleUpdatePhaseData}
+                    handleCompletePhase={handleCompletePhase}
+                    handleGenerateContent={handleGenerateContent}
+                    handleAttachFile={handleAttachFile}
+                    handleRemoveAttachment={handleRemoveAttachment}
+                    generationMode={projectData.generationMode}
+                    onSetGenerationMode={handleSetGenerationMode}
+                    isAutoGenerating={isAutoGenerating}
+                />;
             case 'Documents':
-                return <DocumentsView 
-                            project={projectData}
-                            documents={projectData.documents} 
-                            onUpdateDocument={handleUpdateDocumentStatus} 
-                            phasesData={projectData.phasesData || {}} 
-                            ai={ai}
-                        />;
+                return <DocumentsView project={projectData} documents={projectData.documents} onUpdateDocument={handleUpdateDocument} phasesData={projectData.phasesData || {}} ai={ai} />;
             case 'Project Tracking':
                 return <ProjectTrackingView 
-                            project={projectData}
-                            tasks={projectData.tasks}
-                            sprints={projectData.sprints}
-                            milestones={projectData.milestones}
-                            projectStartDate={projectData.startDate}
-                            projectEndDate={projectData.endDate}
-                            onUpdateTask={handleUpdateTask}
-                            onUpdateTeam={handleUpdateTeam}
-                            onUpdateMilestone={handleUpdateMilestone}
-                        />;
+                    project={projectData}
+                    tasks={projectData.tasks || []}
+                    sprints={projectData.sprints || []}
+                    milestones={projectData.milestones || []}
+                    projectStartDate={projectData.startDate}
+                    projectEndDate={projectData.endDate}
+                    onUpdateTask={handleUpdateTask}
+                    onUpdateMilestone={handleUpdateMilestone}
+                    onUpdateTeam={handleUpdateTeam}
+                />;
             case 'Revision Control':
-                return <RevisionControlView project={projectData} onUpdateProject={(d) => handleSave(d)} ai={ai} />;
+                return <RevisionControlView project={projectData} onUpdateProject={(update) => handleSave(update)} ai={ai} />;
             default:
-                return <div>Select a tab</div>;
+                return null;
         }
     };
 
     return (
-        <>
+        <section>
             <div className="dashboard-header">
-                <button className="button back-button" onClick={onBack}>← Back to Projects</button>
+                <button onClick={onBack} className="button back-button">← Back to Projects</button>
                 <h1>{projectData.name}</h1>
-                <p>
-                    {projectData.discipline}
-                    <span style={{ 
-                        textTransform: 'capitalize', 
-                        color: 'var(--accent-color)', 
-                        backgroundColor: 'var(--card-background)',
-                        padding: '0.2rem 0.6rem',
-                        borderRadius: '1rem',
-                        fontSize: '1rem',
-                        marginLeft: '1rem',
-                        fontWeight: 'bold'
-                    }}>
-                        {projectData.complexity || 'Typical'}
-                    </span>
-                </p>
+                <p>{projectData.discipline}</p>
             </div>
-
             <nav className="dashboard-nav">
-                <button onClick={() => handleTabChange('Dashboard')} className={activeTab === 'Dashboard' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Dashboard</button>
+                <button onClick={() => handleTabChange('Dashboard')} className={activeTab === 'Dashboard' ? 'active' : ''} disabled={!isPlanningComplete}>Dashboard</button>
                 <button onClick={() => handleTabChange('Project Phases')} className={activeTab === 'Project Phases' ? 'active' : ''}>Project Phases</button>
                 <button onClick={() => handleTabChange('Documents')} className={activeTab === 'Documents' ? 'active' : ''}>Documents</button>
-                <button onClick={() => handleTabChange('Project Tracking')} className={activeTab === 'Project Tracking' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Project Tracking</button>
-                <button onClick={() => handleTabChange('Revision Control')} className={activeTab === 'Revision Control' ? 'active' : ''} disabled={!isPlanningComplete} title={!isPlanningComplete ? "Complete all planning phases to unlock" : ""}>Revision Control</button>
-                {isParsingPlan && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem', color: 'var(--secondary-text)' }} role="status" aria-live="polite">
-                        <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
-                        <span>Parsing Project Plan...</span>
-                    </div>
-                )}
+                <button onClick={() => handleTabChange('Project Tracking')} className={activeTab === 'Project Tracking' ? 'active' : ''} disabled={!isPlanningComplete}>Project Tracking</button>
+                <button onClick={() => handleTabChange('Revision Control')} className={activeTab === 'Revision Control' ? 'active' : ''} disabled={!isPlanningComplete}>Revision Control</button>
             </nav>
-            
+            {isParsingPlan && <div className="status-message loading" style={{marginBottom: '2rem'}}><div className="spinner"></div><p>Parsing project plan and populating tracking tools...</p></div>}
             {renderActiveTab()}
-
             <BackToTopButton />
-
-            <NotificationModal 
-                isOpen={notificationQueue.length > 0}
-                onClose={() => setNotificationQueue(prev => prev.slice(1))}
-                onSend={() => {
-                    logAction('Send Notification', 'Email', { notification: notificationQueue[0] });
-                    alert(`Notification "sent" to ${notificationQueue[0].recipientEmail}.`);
-                    setNotificationQueue(prev => prev.slice(1));
-                }}
-                notification={notificationQueue[0] || null}
-            />
-        </>
+        </section>
     );
 };
