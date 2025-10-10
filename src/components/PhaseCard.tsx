@@ -78,6 +78,12 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
     const placeholderText = phase.originalPhaseId === 'phase1'
         ? "Enter or paste here a list of the project expectations, then push Generate Content to expand this into a full Concept Proposal.  You may then further edit  and attach supporting files to further align with your needs. Mark as complete to move to the next document."
         : `Content for ${phase.title} will appear here...`;
+        
+    const getButtonText = () => {
+        if (status === 'failed') return 'Retry Generation';
+        if (phaseData) return 'Regenerate Content';
+        return 'Generate Content';
+    };
 
     return (
         <div className={`phase-card ${isLocked ? 'locked' : ''} ${status}`}>
@@ -122,7 +128,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                     
                     <div className="phase-actions">
                         <button className="button" onClick={() => onGenerate(phase.id, editedContent)} disabled={isLoading || status === 'completed'}>
-                            {phaseData ? 'Regenerate' : 'Generate'} Content
+                            {getButtonText()}
                         </button>
                         {phase.originalPhaseId === 'phase1' && (
                             <>

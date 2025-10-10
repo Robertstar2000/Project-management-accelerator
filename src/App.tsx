@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI } from "@google/genai";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { LandingPage } from './views/LandingPage';
 import { ProjectDashboard } from './views/ProjectDashboard';
@@ -11,16 +11,49 @@ import { HelpModal } from './components/HelpModal';
 import { GlobalStyles } from './styles/GlobalStyles';
 import { DEFAULT_SPRINTS, TEMPLATES, DEFAULT_DOCUMENTS } from './constants/projectData';
 import { logAction } from './utils/logging';
+import { AuthView } from './views/AuthView';
+import * as authService from './utils/authService';
+import { subscribeToUpdates, notifyUpdate } from './utils/syncService';
+import { Project, Task } from './types';
 
 const App = () => {
   const [ai, setAi] = useState<GoogleGenAI | null>(null);
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [apiKeyStatus, setApiKeyStatus] = useState('pending');
+  const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
+  const [appKey, setAppKey] = useState(0); // Used to force re-renders on sync
+
+  const userProjects = useMemo(() => {
+    if (!projects || !currentUser) return [];
+    return projects.filter(p => p.ownerId === currentUser.id || p.team?.some(member => member.userId === currentUser.id));
+  }, [projects, currentUser]);
+
+  const reloadStateFromStorage = () => {
+    logAction('Sync Update', 'BroadcastChannel', { message: 'Forcing state reload from localStorage' });
+    const storedProjects = localStorage.getItem('hmap-projects');
+    if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+    }
+    const selectedProjectId = localStorage.getItem('hmap-selected-project-id');
+    if (selectedProjectId && selectedProject && selectedProjectId === selectedProject.id) {
+        const updatedSelectedProject = JSON.parse(storedProjects).find(p => p.id === selectedProjectId);
+        if (updatedSelectedProject) {
+            setSelectedProject(updatedSelectedProject);
+        }
+    }
+    setAppKey(prev => prev + 1); // Force update
+  };
+
+  useEffect(() => {
+    const unsubscribe = subscribeToUpdates(reloadStateFromStorage);
+    return () => unsubscribe();
+  }, [selectedProject]);
+
 
   const initializeAi = (key, source) => {
     try {
@@ -53,22 +86,13 @@ const App = () => {
   };
 
   useEffect(() => {
-    let loadedProjects = [];
     try {
       const storedProjects = localStorage.getItem('hmap-projects');
       if (storedProjects) {
-        loadedProjects = JSON.parse(storedProjects);
-        setProjects(loadedProjects);
+        setProjects(JSON.parse(storedProjects));
+      } else {
+        localStorage.setItem('hmap-projects', JSON.stringify([]));
       }
-
-      const selectedProjectId = localStorage.getItem('hmap-selected-project-id');
-      if (selectedProjectId) {
-          const projectToSelect = loadedProjects.find(p => p.id === selectedProjectId);
-          if (projectToSelect) {
-              setSelectedProject(projectToSelect);
-          }
-      }
-
     } catch (error: any) {
         console.error("Failed to load data from localStorage:", error);
         setProjects([]);
@@ -86,10 +110,34 @@ const App = () => {
     
     setApiKeyStatus('none');
   }, []);
+
+  useEffect(() => {
+    const selectedProjectId = localStorage.getItem('hmap-selected-project-id');
+    
+    if (currentUser && selectedProjectId && projects.length > 0) {
+        const projectToSelect = projects.find(p => p.id === selectedProjectId);
+        
+        if (projectToSelect) {
+            const isOwnerOrMember = projectToSelect.ownerId === currentUser.id || 
+                                  projectToSelect.team?.some(member => member.userId === currentUser.id);
+            if (isOwnerOrMember) {
+                setSelectedProject(projectToSelect);
+            } else {
+                setSelectedProject(null);
+                localStorage.removeItem('hmap-selected-project-id');
+            }
+        } else {
+            localStorage.removeItem('hmap-selected-project-id');
+        }
+    } else if (!currentUser) {
+        setSelectedProject(null);
+    }
+  }, [currentUser, projects]);
   
   const saveProjectsToStorage = (updatedProjects) => {
     try {
       localStorage.setItem('hmap-projects', JSON.stringify(updatedProjects));
+      notifyUpdate();
     } catch (error: any) {
       console.error("Failed to save projects to localStorage:", error);
     }
@@ -98,24 +146,51 @@ const App = () => {
   const handleCreateProject = ({ name, template, mode, scope, teamSize, complexity }) => {
     const today = new Date();
     const endDate = new Date(today);
-    endDate.setDate(today.getDate() + 44); // Default end date, will be updated by plan parsing
+    endDate.setDate(today.getDate() + 44);
     
-    const newProject = { 
-        id: Date.now().toString(), 
-        name,
-        mode, // 'fullscale' or 'minimal'
-        scope, // 'internal' or 'subcontracted'
-        generationMode: 'manual', // 'manual' or 'automatic'
-        teamSize,
-        complexity: complexity || 'typical',
-        discipline: template.discipline,
+    const projectDocuments = JSON.parse(JSON.stringify(template.documents || DEFAULT_DOCUMENTS));
+    
+    const mandatoryDocs = [
+        { title: 'Statement of Work (SOW)', phase: 5 },
+        { title: 'Resources & Skills List', phase: 2 },
+        { title: 'Detailed Plans (WBS/WRS)', phase: 7 }
+    ];
+
+    mandatoryDocs.forEach(mandatoryDoc => {
+        const simpleTitle = mandatoryDoc.title.replace(/\s\(.*\)/, '');
+        const hasDoc = projectDocuments.some(doc => doc.title.includes(simpleTitle));
+        
+        if (!hasDoc) {
+            projectDocuments.push({
+                id: `doc-mandatory-${Date.now()}-${mandatoryDoc.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                title: mandatoryDoc.title, version: 'v1.0', status: 'Working', owner: 'A. User', phase: mandatoryDoc.phase,
+            });
+        }
+    });
+
+    if (scope === 'subcontracted') {
+        const hasRFP = projectDocuments.some(doc => doc.title.toLowerCase().includes('request for proposal') || doc.title.toLowerCase().includes('rfp'));
+        if (!hasRFP) {
+            projectDocuments.push({
+                id: `doc-subco-${Date.now()}-rfp`, title: 'Request for Proposal (RFP)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 2,
+            });
+        }
+        
+        const hasContract = projectDocuments.some(doc => doc.title.toLowerCase().includes('contract') || doc.title.toLowerCase().includes('agreement'));
+        if (!hasContract) {
+             projectDocuments.push({
+                id: `doc-subco-${Date.now()}-contract`, title: "Draft Contract with T's & C's", version: 'v1.0', status: 'Working', owner: 'A. User', phase: 5,
+            });
+        }
+    }
+    
+    const newProject: Project = { 
+        id: Date.now().toString(), name, mode, scope, generationMode: 'manual', teamSize, complexity: complexity || 'typical', discipline: template.discipline,
+        ownerId: currentUser.id,
         phasesData: {},
-        team: [],
-        documents: JSON.parse(JSON.stringify(template.documents || DEFAULT_DOCUMENTS)), // Deep copy from template
-        tasks: [],
-        sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)), // Keep sprints for initial UI structure
-        milestones: [],
-        budget: 100000,
+        team: [{ userId: currentUser.id, role: 'Project Owner', name: currentUser.username, email: currentUser.email }],
+        documents: projectDocuments, tasks: [], sprints: JSON.parse(JSON.stringify(DEFAULT_SPRINTS)), milestones: [], resources: [],
+        avgBurdenedLaborRate: 125, budget: 100000,
         startDate: today.toISOString().split('T')[0],
         endDate: endDate.toISOString().split('T')[0],
         changeRequest: { title: 'Add new login provider', reason: 'User request for SSO', impactStr: '+15d +5000c' },
@@ -123,14 +198,14 @@ const App = () => {
             { id: 1, name: 'A: Use contractors', impactStr: '+10d +8000c' },
             { id: 2, name: 'B: Defer feature', impactStr: '+0d +0c' },
         ],
+        notifications: [],
     };
     const updatedProjects = [...projects, newProject];
     setProjects(updatedProjects);
     saveProjectsToStorage(updatedProjects);
-    // Set a session flag to indicate this is a new project for smart navigation.
     sessionStorage.setItem('hmap-new-project-id', newProject.id);
     handleSelectProject(newProject);
-    handleModalOpen(false); // Close the modal after creation
+    handleModalOpen(false);
     logAction('Create Project', newProject.name, { newProject, allProjects: updatedProjects });
   };
   
@@ -152,6 +227,12 @@ const App = () => {
     } else {
         localStorage.removeItem('hmap-selected-project-id');
     }
+  };
+
+  const handleSelectTask = (project: Project, task: Task) => {
+    logAction('Select Task from My Work', task.name, { projectId: project.id, taskId: task.id });
+    handleSelectProject(project);
+    sessionStorage.setItem('hmap-open-task-on-load', task.id);
   };
 
   const handleModalOpen = (isOpen) => {
@@ -176,33 +257,43 @@ const App = () => {
     logAction('Request Project Deletion', project.name, { projectId: project.id });
     setProjectToDelete(project);
     setIsDeleteConfirmationOpen(true);
-    handleModalOpen(false); // Close the projects modal
+    handleModalOpen(false);
   };
 
   const handleConfirmDeletion = () => {
     if (!projectToDelete) return;
-
     logAction('Confirm Delete Project', projectToDelete.name, { projectId: projectToDelete.id });
-
     const updatedProjects = projects.filter(p => p.id !== projectToDelete.id);
     setProjects(updatedProjects);
     saveProjectsToStorage(updatedProjects);
-    
     cleanupProjectData(projectToDelete.id);
-    
     if (selectedProject && selectedProject.id === projectToDelete.id) {
         setSelectedProject(null);
     }
-
     setProjectToDelete(null);
     setIsDeleteConfirmationOpen(false);
   };
-
 
   const handleToggleHelpModal = (isOpen: boolean) => {
       logAction('Toggle Help Modal', 'UI Action', { isOpen });
       setIsHelpModalOpen(isOpen);
   };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setSelectedProject(null);
+    localStorage.removeItem('hmap-selected-project-id');
+  };
+
+  if (!currentUser) {
+    return (
+        <>
+            <style>{GlobalStyles}</style>
+            <AuthView onLogin={(user) => setCurrentUser(user)} />
+        </>
+    );
+  }
 
   return (
     <>
@@ -212,6 +303,8 @@ const App = () => {
             onHomeClick={() => handleSelectProject(null)}
             disabled={!ai}
             isLandingPage={!selectedProject}
+            currentUser={currentUser}
+            onLogout={handleLogout}
         />
         <main>
             {selectedProject ? (
@@ -220,16 +313,20 @@ const App = () => {
                     onBack={() => handleSelectProject(null)} 
                     ai={ai}
                     saveProject={handleSaveProject}
+                    currentUser={currentUser}
+                    key={appKey}
                 />
             ) : (
                 <LandingPage
-                    projects={projects}
+                    projects={userProjects}
                     onSelectProject={handleSelectProject}
                     onNewProject={handleNewProjectRequest}
                     apiKeyStatus={apiKeyStatus}
                     onSetUserKey={handleSetUserKey}
                     disabled={!ai}
                     onRequestDelete={handleRequestDeleteProject}
+                    currentUser={currentUser}
+                    onSelectTask={handleSelectTask}
                 />
             )}
         </main>
@@ -237,10 +334,11 @@ const App = () => {
             isOpen={isModalOpen} 
             onClose={() => handleModalOpen(false)} 
             onCreateProject={handleCreateProject}
-            projects={projects}
+            projects={userProjects}
             onSelectProject={handleSelectProject}
             onRequestDelete={handleRequestDeleteProject}
             ai={ai}
+            currentUser={currentUser}
         />
         {projectToDelete && (
           <DeleteProjectConfirmationModal

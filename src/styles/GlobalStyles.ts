@@ -1,4 +1,5 @@
 
+
 export const GlobalStyles = `
   :root {
     --background-color: #0a0a1a;
@@ -172,6 +173,15 @@ export const GlobalStyles = `
     background-color: var(--error-color);
     color: var(--background-color);
   }
+  
+  .button-close {
+    background: none;
+    border: none;
+    color: var(--secondary-text);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+  }
 
   .section-title {
     text-align: center;
@@ -288,6 +298,15 @@ export const GlobalStyles = `
       border-radius: 4px;
       margin-bottom: 1rem;
       line-height: 1.5;
+  }
+
+  .ai-warning-box {
+    background-color: rgba(255, 170, 0, 0.1);
+    border: 1px solid var(--inprogress-color);
+    color: var(--inprogress-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    line-height: 1.6;
   }
 
   .form-group {
@@ -449,16 +468,18 @@ export const GlobalStyles = `
     border-color: var(--accent-color);
     background-color: rgba(0, 242, 255, 0.1);
     color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
   }
-
+  .mode-switch button.active span {
+    color: var(--secondary-text);
+  }
 
   .template-selection-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
   }
-  
+
   .template-card {
     padding: 1rem;
     border: 1px solid var(--border-color);
@@ -466,570 +487,25 @@ export const GlobalStyles = `
     cursor: pointer;
     transition: all 0.2s ease;
   }
-  
   .template-card:hover {
     border-color: var(--accent-color);
-    background-color: var(--background-color);
+    background-color: rgba(0, 242, 255, 0.05);
   }
-
   .template-card.selected {
     border-color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
-    outline: 2px solid var(--accent-color);
+    background-color: rgba(0, 242, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
   }
-
   .template-card h4 {
+    font-size: 1rem;
     color: var(--primary-text);
     margin-bottom: 0.5rem;
   }
-
   .template-card p {
-    font-size: 0.9rem;
-    color: var(--secondary-text);
-  }
-
-  /* Project List Styles */
-  .project-list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-  }
-
-  .project-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .project-card {
-    background-color: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1.5rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    cursor: pointer;
-    height: 100%;
-  }
-
-  .project-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.15);
-    border-color: var(--accent-color);
-  }
-
-  .project-card[aria-disabled="true"] {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .project-card[aria-disabled="true"]:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--border-color);
-  }
-
-  .project-card h3 {
-    color: var(--accent-color);
-    margin-bottom: 0.5rem;
-  }
-
-  .project-card p {
-    color: var(--secondary-text);
-    font-size: 0.9rem;
-  }
-  
-  .project-card-container {
-    position: relative;
-  }
-
-  .delete-project-button {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-    z-index: 2;
-  }
-
-  .project-card-container:hover .delete-project-button,
-  .project-card-container:focus-within .delete-project-button {
-    opacity: 1;
-  }
-
-  .no-projects {
-    text-align: center;
-    padding: 2rem;
-    background-color: var(--card-background);
-    border: 1px dashed var(--border-color);
-    border-radius: 8px;
-  }
-  
-  /* Project Dashboard Styles */
-  .dashboard-header {
-    margin-bottom: 2rem;
-  }
-
-  .dashboard-header .back-button {
-    margin-bottom: 1rem;
-  }
-  
-  .dashboard-header h1 {
-    font-size: 3rem;
-    color: var(--accent-color);
-  }
-  
-  .dashboard-header p {
-    font-size: 1.2rem;
-    color: var(--secondary-text);
-  }
-
-  .dashboard-nav {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    overflow-x: auto;
-  }
-
-  .dashboard-nav button {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    background: transparent;
-    color: var(--secondary-text);
-    font-size: 1rem;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color 0.2s, border-color 0.2s;
-    white-space: nowrap;
-  }
-  .dashboard-nav button:hover:not([disabled]) {
-    color: var(--primary-text);
-  }
-  .dashboard-nav button.active {
-    color: var(--accent-color);
-    border-bottom-color: var(--accent-color);
-  }
-  .dashboard-nav button[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-    color: var(--secondary-text) !important;
-  }
-  .dashboard-nav button[disabled]:hover {
-    border-bottom-color: transparent;
-  }
-
-
-  /* Tool Specific Styles */
-  .tool-grid { display: grid; gap: 1.5rem; }
-  .tool-card { background: var(--card-background); border-radius: 8px; padding: 1.5rem; border: 1px solid var(--border-color); }
-
-  /* KPI Cards */
-  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .kpi-card h4 { color: var(--secondary-text); font-size: 1rem; margin-bottom: 0.5rem; font-weight: 500;}
-  .kpi-card .value { font-size: 2rem; font-weight: bold; }
-  .kpi-card .value.green { color: var(--status-green); }
-  .kpi-card .value.amber { color: var(--status-amber); }
-  .kpi-card .value.red { color: var(--status-red); }
-
-  /* Phase Tracker */
-  .phase-tracker { display: flex; align-items: center; gap: 4px; background: var(--background-color); padding: 8px; border-radius: 4px; }
-  .phase-tracker-segment { flex: 1; height: 10px; background: var(--locked-color); transition: background-color 0.3s; }
-  .phase-tracker-segment.completed { background: var(--status-green); }
-  .phase-tracker-segment.inprogress { background: var(--status-amber); }
-
-  /* Swimlanes */
-  .swimlane { margin-bottom: 1rem; }
-  .swimlane h4 { margin-bottom: 0.5rem; }
-  .swimlane-content { display: flex; gap: 1rem; padding: 1rem; background: var(--background-color); border-radius: 4px; overflow-x: auto;}
-  .task-card { background: #2a2a3a; padding: 0.75rem; border-radius: 4px; border-left: 3px solid var(--accent-color); min-width: 150px; }
-
-  /* Document Center */
-  .document-filters { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
-  .document-table { width: 100%; border-collapse: collapse; }
-  .document-table th, .document-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
-  .document-table th { color: var(--secondary-text); }
-  .upload-dropzone { border: 2px dashed var(--border-color); border-radius: 8px; padding: 2rem; text-align: center; background: var(--background-color); margin-top: 1.5rem; }
-  
-  .document-status-select {
-    border-radius: 1rem;
-    border: none;
-    padding: 0.25rem 0.75rem;
-    font-weight: bold;
     font-size: 0.8rem;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    background-position: right 0.5rem center;
-    background-repeat: no-repeat;
-    background-size: 0.65em auto;
-    padding-right: 1.5rem;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='292.4' height='292.4'%3E%3Cpath fill='%230a0a1a' d='M287 69.4a17.6 17.6 0 0 0-13-5.4H18.4c-5 0-9.3 1.8-12.9 5.4A17.6 17.6 0 0 0 0 82.2c0 5 1.8 9.3 5.4 12.9l128 127.9c3.6 3.6 7.8 5.4 12.8 5.4s9.2-1.8 12.8-5.4L287 95c3.5-3.5 5.4-7.8 5.4-12.8 0-5-1.9-9.2-5.5-12.8z'/%3E%3C/svg%3E");
-  }
-
-  .document-status-select.chip-green { background-color: var(--status-green); color: var(--background-color); }
-  .document-status-select.chip-amber { background-color: var(--status-amber); color: var(--background-color); }
-  .document-status-select.chip-red { background-color: var(--status-red); color: var(--background-color); }
-  .document-status-select.chip-green option,
-  .document-status-select.chip-amber option,
-  .document-status-select.chip-red option { 
-    background-color: var(--card-background); color: var(--primary-text); 
-  }
-
-  /* Project Tracking Tool */
-  .tracking-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-  .kanban-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding-top: 1rem; }
-  .kanban-column { background-color: var(--background-color); border-radius: 4px; padding: 0.75rem; }
-  .kanban-column h4 { margin-bottom: 1rem; text-align: center; text-transform: capitalize; }
-  .kanban-card { background: #2a2a3a; padding: 1rem; border-radius: 4px; margin-bottom: 0.75rem; cursor: grab; font-size: 0.9rem; border-left: 3px solid var(--border-color); }
-  .kanban-card.todo { border-left-color: var(--task-todo-color); }
-  .kanban-card.inprogress { border-left-color: var(--task-inprogress-color); }
-  .kanban-card.review { border-left-color: var(--task-review-color); }
-  .kanban-card.done { border-left-color: var(--task-done-color); text-decoration: line-through; opacity: 0.7; }
-  .kanban-card p {
-    margin: 0 0 0.5rem 0;
-    line-height: 1.3;
-  }
-  .kanban-card small {
     color: var(--secondary-text);
-    font-size: 0.8rem;
-  }
-  .kanban-card.overdue {
-    border-left-color: var(--status-red) !important;
-    box-shadow: 0 0 8px rgba(255, 77, 77, 0.3);
-  }
-  .kanban-card .subcontractor-label {
-    float: right;
-    font-size: 0.75rem;
-    font-weight: bold;
-    color: var(--background-color);
-    background-color: var(--accent-color);
-    padding: 0.1rem 0.4rem;
-    border-radius: 4px;
-    margin-left: 0.5rem;
-  }
-  .kanban-card .kanban-status-select {
-    background-color: rgba(0,0,0,0.3);
-    border: 1px solid var(--border-color);
-    color: var(--primary-text);
-    border-radius: 4px;
-    padding: 0.2rem 0.4rem;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-  .kanban-card .kanban-status-select:focus {
-    outline: 1px solid var(--accent-color);
-  }
-
-  /* Gantt Chart */
-  .gantt-container { overflow-x: auto; padding: 1rem; background-color: var(--background-color); border-radius: 4px; position: relative; }
-  .gantt-dependency-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-  .gantt-dependency-line {
-    stroke: var(--accent-color);
-    stroke-width: 2;
-    fill: none;
-    opacity: 0.7;
-  }
-  .gantt-dependency-arrow {
-    fill: var(--accent-color);
-  }
-  .gantt-grid { display: grid; gap: 4px 0; align-items: center; }
-  .gantt-header { grid-column: 2 / -1; display: grid; padding-left: 1rem; }
-  .gantt-date { font-size: 0.75rem; color: var(--secondary-text); text-align: center; }
-  .gantt-sprint-label { font-weight: bold; padding: 1rem; text-align: right; font-size: 0.9rem; }
-  .gantt-task-row { grid-column: 2 / -1; display: grid; padding-left: 1rem; position: relative; height: 30px; }
-  .gantt-task-bar { height: 100%; background-color: var(--accent-color); border-radius: 4px; color: var(--background-color); font-size: 0.8rem; padding: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .task-bar-todo { background: var(--task-todo-color); }
-  .task-bar-inprogress { background: var(--task-inprogress-color); }
-  .task-bar-review { background: var(--task-review-color); }
-  .task-bar-done { background: var(--task-done-color); }
-  .gantt-task-bar.blocked {
-    background: repeating-linear-gradient(45deg, var(--status-red), var(--status-red) 10px, #ff6b6b 10px, #ff6b6b 20px);
-    cursor: not-allowed;
-  }
-  .gantt-task-bar.overdue {
-    box-shadow: 0 0 0 2px var(--status-red) inset;
-  }
-  .gantt-task-bar.subcontracted {
-    background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px);
   }
   
-  /* Task List & Milestones Table */
-  .task-list-table, .milestones-table { width: 100%; border-collapse: collapse; }
-  .task-list-table th, .task-list-table td,
-  .milestones-table th, .milestones-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
-  .task-list-table th, .milestones-table th { color: var(--secondary-text); }
-  
-  .task-list-table tr.task-row-overdue {
-    background-color: rgba(255, 77, 77, 0.1);
-  }
-  .task-list-table tr.task-row-overdue:hover {
-    background-color: rgba(255, 77, 77, 0.2);
-  }
-
-  .task-list-table input[type="date"] {
-    background-color: transparent;
-    border: none;
-    color: var(--primary-text);
-    font-family: inherit;
-    font-size: inherit;
-    padding: 0;
-    width: 120px;
-  }
-  
-  .task-date-error {
-    color: var(--error-color);
-    font-size: 0.8rem;
-    margin-top: 4px;
-  }
-  
-  .dependency-select {
-    width: 100%;
-    min-height: 80px;
-    background-color: var(--background-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--primary-text);
-  }
-  .dependency-select option {
-    padding: 0.25rem;
-  }
-  
-  .milestone-planned-date {
-    color: var(--secondary-text);
-    text-decoration: line-through;
-    font-style: italic;
-  }
-
-  /* Revision Control Tool */
-  .impact-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-  .impact-table th, .impact-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
-  .impact-table th { color: var(--secondary-text); }
-  .impact-table td:first-child { font-weight: bold; }
-  .impact-positive { color: var(--status-red); }
-  .impact-negative { color: var(--status-green); }
-  
-  /* HMAP Phase Card Styles */
-  .phase-card {
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-    transition: all 0.3s ease;
-  }
-  
-  .phase-header {
-    padding: 1.5rem;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .phase-header:hover {
-    background: #2a2a3a;
-  }
-  
-  .phase-header h3 {
-    font-size: 1.5rem;
-    margin: 0;
-  }
-
-  .lock-reason {
-    font-size: 0.85rem;
-    color: var(--status-amber);
-    margin-top: 0.5rem;
-    font-style: italic;
-  }
-
-  .phase-status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.8rem;
-    font-weight: bold;
-    text-transform: uppercase;
-  }
-  .phase-status.completed { background-color: var(--success-color); color: var(--background-color); }
-  .phase-status.todo { background-color: var(--accent-color); color: var(--background-color); }
-  .phase-status.locked { background-color: var(--locked-color); color: var(--primary-text); }
-  .phase-status.failed { background-color: var(--error-color); color: var(--background-color); }
-
-  .phase-content {
-    padding: 0 1.5rem 1.5rem;
-  }
-  
-  .phase-card.locked {
-    opacity: 0.6;
-  }
-  .phase-card.locked .phase-header {
-    cursor: not-allowed;
-  }
-  .phase-card.locked .phase-header:hover {
-    background: transparent;
-  }
-  .phase-card.locked h3 { color: var(--secondary-text); }
-  
-  .phase-card.completed h3 { color: var(--success-color); }
-  .phase-card.failed h3 { color: var(--error-color); }
-
-  .phase-content .display-content {
-    background-color: var(--background-color);
-    padding: 1rem;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    color: var(--primary-text);
-    line-height: 1.7;
-    margin-bottom: 1rem;
-    max-height: 400px;
-    overflow-y: auto;
-  }
-  
-  .display-content h1,
-  .display-content h2,
-  .display-content h3 {
-    color: var(--accent-color);
-    margin-top: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  .display-content h1 { font-size: 1.8rem; }
-  .display-content h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
-  .display-content h3 { font-size: 1.2rem; }
-  
-  .display-content p {
-    margin-bottom: 1rem;
-  }
-
-  .display-content ul,
-  .display-content ol {
-    margin-bottom: 1rem;
-    padding-left: 1.5rem;
-  }
-
-  .display-content li {
-    margin-bottom: 0.5rem;
-  }
-  
-  .display-content a {
-    text-decoration: underline;
-  }
-  
-  .display-content code {
-    background-color: #2a2a3a;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-family: monospace;
-  }
-
-  .display-content strong {
-    font-weight: bold;
-  }
-  
-  .display-content hr {
-    border: 0;
-    border-top: 1px solid var(--border-color);
-    margin: 2rem 0;
-  }
-
-  .phase-content textarea {
-    width: 100%;
-    min-height: 250px;
-    padding: 1rem;
-    background-color: var(--background-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--primary-text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1rem;
-    line-height: 1.7;
-    resize: vertical;
-    margin-bottom: 1rem;
-  }
-
-  .phase-content textarea:focus {
-    outline: 1px solid var(--accent-color);
-    border-color: var(--accent-color);
-  }
-
-  .phase-actions {
-    margin-top: 1.5rem;
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  
-  .attachments-section {
-    border-top: 1px solid var(--border-color);
-    padding-top: 1.5rem;
-    margin-top: 1.5rem;
-  }
-
-  .attachment-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-height: 150px;
-    overflow-y: auto;
-  }
-  
-  .attachment-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--background-color);
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    font-size: 0.9rem;
-  }
-  
-  .status-message {
-    text-align: center;
-    padding: 1rem;
-    border-radius: 4px;
-    margin-top: 1rem;
-  }
-  
-  .status-message.loading {
-    background-color: var(--background-color);
-    border: 1px dashed var(--accent-color);
-    color: var(--accent-color);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    min-height: 274px; /* Match textarea height */
-    margin-bottom: 1rem;
-  }
-
-  .status-message.loading p {
-    margin-top: 1rem;
-    font-size: 1.1rem;
-  }
-  
-  .status-message.error {
-    background-color: rgba(255, 77, 77, 0.1);
-    color: var(--error-color);
-  }
-
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid var(--border-color);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   /* Help FAB */
   .help-fab {
     position: fixed;
@@ -1041,14 +517,11 @@ export const GlobalStyles = `
     background-color: var(--accent-color);
     color: var(--background-color);
     border: none;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: bold;
     cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     box-shadow: 0 4px 10px rgba(0, 242, 255, 0.3);
-    z-index: 999;
+    z-index: 1001;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .help-fab:hover {
@@ -1056,155 +529,834 @@ export const GlobalStyles = `
     box-shadow: 0 6px 15px rgba(0, 242, 255, 0.4);
   }
   
-  /* Back to Top FAB */
   .back-to-top-fab {
     position: fixed;
     bottom: 2rem;
-    right: 6.5rem; /* Position next to the help button */
+    left: 2rem;
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background-color: var(--card-background);
-    color: var(--accent-color);
-    border: 1px solid var(--accent-color);
-    font-size: 1.8rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    z-index: 998; /* Below help fab */
-    transition: all 0.2s ease;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(20px);
-  }
-  
-  .back-to-top-fab.visible {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-  }
-
-  .back-to-top-fab:hover {
-    transform: scale(1.1) translateY(0);
     background-color: var(--accent-color);
     color: var(--background-color);
+    border: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 242, 255, 0.3);
+    z-index: 1001;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+    transform: translateY(100px);
+  }
+  .back-to-top-fab.visible {
+      opacity: 1;
+      transform: translateY(0);
   }
 
   /* Help Modal */
   .help-modal-content {
-    max-width: 800px;
-    width: 95%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
+      max-width: 800px;
+      height: 80vh;
   }
-  
   .help-modal-body {
-    overflow-y: auto;
-    flex-grow: 1;
-    padding-right: 1rem; /* for scrollbar */
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-right: 1.5rem; /* For scrollbar */
   }
-
-  /* Styles for parsed markdown content */
-  .help-modal-body h1,
-  .help-modal-body h2,
-  .help-modal-body h3 {
-    color: var(--accent-color);
-    margin-top: 1.5rem;
-    margin-bottom: 1rem;
+  .help-modal-body h1, .help-modal-body h2, .help-modal-body h3 {
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--accent-color);
   }
-  .help-modal-body h1 { font-size: 2rem; }
-  .help-modal-body h2 { font-size: 1.7rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
-  .help-modal-body h3 { font-size: 1.4rem; }
-  
-  .help-modal-body p {
-    margin-bottom: 1rem;
-    line-height: 1.7;
+  .help-modal-body ul, .help-modal-body ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
   }
-
-  .help-modal-body ul,
-  .help-modal-body ol {
-    margin-bottom: 1rem;
-    padding-left: 1.5rem;
-  }
-
   .help-modal-body li {
-    margin-bottom: 0.5rem;
-    line-height: 1.7;
+      margin-bottom: 0.5rem;
   }
-  
-  .help-modal-body a {
-    text-decoration: underline;
-  }
-  
   .help-modal-body code {
-    background-color: var(--background-color);
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-family: monospace;
+      background-color: var(--background-color);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
   }
-
-  .help-modal-body strong {
-    font-weight: bold;
-    color: var(--primary-text);
+  .help-modal-body hr {
+      border: 0;
+      border-top: 1px solid var(--border-color);
+      margin: 2rem 0;
   }
   
-  .help-modal-body hr {
-    border: 0;
-    border-top: 1px solid var(--border-color);
-    margin: 2rem 0;
+  /* Landing Page Project List */
+  .project-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
   }
-
-  /* Change Deployment Modal */
-  .change-deployment-modal {
-    max-width: 700px;
+  .project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
   }
-
-  .deployment-progress {
-    text-align: center;
-    margin-bottom: 1.5rem;
-    font-size: 1.1rem;
+  .project-card-container {
+    position: relative;
+  }
+  .project-card {
+    background-color: var(--card-background);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
+  }
+  .project-card h3 {
+    margin-bottom: 0.5rem;
+  }
+  .project-card p {
     color: var(--secondary-text);
   }
+  .delete-project-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .project-card-container:hover .delete-project-button {
+    opacity: 1;
+  }
+  .no-projects {
+      text-align: center;
+      padding: 3rem;
+      background: var(--card-background);
+      border-radius: 8px;
+      border: 1px dashed var(--border-color);
+  }
 
-  .deployment-step {
-    background-color: var(--background-color);
+  /* Landing Page Instructions */
+  .instructions-list {
+    background-color: var(--card-background);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+  .instructions-list h2 {
+    margin-bottom: 1.5rem;
+    color: var(--accent-color);
+  }
+  .instructions-list ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  .instructions-list li {
+    padding-left: 2rem;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+  .instructions-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+    font-weight: bold;
+    font-size: 1.2rem;
+  }
+
+  /* Dashboard Header */
+  .dashboard-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+  .dashboard-header .back-button {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+  }
+  .dashboard-header h1 {
+      font-size: 2.5rem;
+  }
+  .dashboard-header p {
+      color: var(--secondary-text);
+      font-size: 1.2rem;
+  }
+  
+  .dashboard-nav {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .dashboard-nav button {
+    border: none;
+    background: transparent;
+    padding: 0.5rem 1rem;
+  }
+  .dashboard-nav button.active {
+    background: var(--accent-color);
+    color: var(--background-color);
+  }
+  
+  /* General Tool Card */
+  .tool-card {
+      background-color: var(--card-background);
+      padding: 2rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+  }
+  .tool-grid {
+      display: grid;
+      gap: 1.5rem;
+  }
+  
+  /* Status Message (Loading/Error) */
+  .status-message {
+      padding: 1.5rem;
+      border-radius: 4px;
+      text-align: center;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+  }
+  .status-message.error {
+      background-color: rgba(255, 77, 77, 0.1);
+      border: 1px solid var(--error-color);
+      color: var(--error-color);
+  }
+  .status-message.loading {
+      background-color: rgba(0, 242, 255, 0.1);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+  }
+  
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(0, 242, 255, 0.3);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Phase Card styles */
+  .phase-card {
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 1.5rem;
-  }
-  
-  .deployment-step h4 {
-    color: var(--accent-color);
     margin-bottom: 1rem;
-    font-size: 1.3rem;
+    transition: box-shadow 0.2s ease;
   }
-  
-  .deployment-step-action {
-    font-size: 1.5rem;
+  .phase-card:not(.locked):hover {
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+  }
+
+  .phase-header {
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .phase-card.locked .phase-header {
+    cursor: not-allowed;
+  }
+
+  .phase-status {
+    text-transform: capitalize;
     font-weight: bold;
-    margin-right: 0.75rem;
-  }
-  .deployment-step-action.add { color: var(--status-green); }
-  .deployment-step-action.delete { color: var(--error-color); }
-  .deployment-step-action.edit { color: var(--status-amber); }
-  
-  .deployment-step-target {
-    font-weight: bold;
-  }
-  
-  .deployment-step-details {
-    margin-top: 1rem;
-    padding-left: 1rem;
-    border-left: 2px solid var(--border-color);
+    padding: 0.3rem 0.8rem;
+    border-radius: 1rem;
     font-size: 0.9rem;
+  }
+  .phase-status.locked { color: var(--locked-color); }
+  .phase-status.todo { color: var(--inprogress-color); }
+  .phase-status.completed { color: var(--success-color); }
+  .phase-status.failed { color: var(--error-color); }
+  
+  .lock-reason {
+    font-size: 0.8rem;
+    color: var(--locked-color);
+    margin-top: 0.5rem;
+  }
+
+  .phase-content {
+    padding: 0 1.5rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+  }
+  .phase-content textarea {
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+    margin: 1.5rem 0;
+  }
+  .phase-content .display-content {
+    background-color: var(--background-color);
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1.5rem 0;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .display-content h1, .display-content h2, .display-content h3 { color: var(--accent-color); margin: 1rem 0 0.5rem; }
+  .display-content p { margin-bottom: 0.5rem; }
+  .display-content ul, .display-content ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+  .display-content code { background-color: var(--card-background); padding: 0.2rem 0.4rem; border-radius: 4px; }
+  .display-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  .display-content th, .display-content td { border: 1px solid var(--border-color); padding: 0.5rem; }
+  .display-content th { background: var(--card-background); }
+
+  .phase-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .attachments-section {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.5rem;
+  }
+  .attachment-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .attachment-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--background-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+  }
+  
+  /* Document Center Table */
+  .document-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+  }
+  .document-table th, .document-table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+  .document-table th {
+    background: var(--card-background);
+  }
+  .document-status-select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-weight: bold;
+    padding: 0.5rem;
+    border-radius: 4px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+  .document-status-select.chip-green { background: var(--status-green); color: var(--background-color); }
+  .document-status-select.chip-amber { background: var(--status-amber); color: var(--background-color); }
+  .document-status-select.chip-red { background: var(--status-red); color: var(--background-color); }
+
+  .upload-dropzone {
+      margin-top: 2rem;
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+  }
+  .upload-dropzone:hover {
+      border-color: var(--accent-color);
+  }
+
+  /* Project Tracking Views */
+  .tracking-view-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+  }
+  
+  /* Task List Table */
+  .task-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+  }
+  .task-list-table th, .task-list-table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+  .task-list-table tbody tr {
+    cursor: pointer;
+  }
+  .task-list-table tbody tr:hover {
+    background-color: var(--card-background);
+  }
+  .task-list-table th { background: var(--card-background); }
+  .task-list-table input, .task-list-table select {
+    background: transparent;
+    border: none;
+    color: var(--primary-text);
+    padding: 0.25rem;
+    width: 100%;
+    min-width: 120px;
+    cursor: initial;
+  }
+  .task-list-table input[type="date"] { min-width: 150px; }
+  .dependency-select {
+    min-height: 60px;
+    background: var(--background-color) !important;
+    border: 1px solid var(--border-color) !important;
+  }
+  .task-date-error {
+    color: var(--error-color);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+  .task-row-overdue {
+    background-color: rgba(255, 77, 77, 0.1);
+    box-shadow: -4px 0 0 0 var(--error-color) inset;
+  }
+  .task-row-overdue:hover {
+    background-color: rgba(255, 77, 77, 0.2);
+  }
+
+  /* Gantt Chart */
+  .gantt-container {
+      position: relative;
+      overflow-x: auto;
+      padding-bottom: 1rem; /* Space for dependency lines */
+  }
+  .gantt-grid {
+      display: grid;
+      min-width: 1200px; /* Ensure there's space to scroll */
+  }
+  .gantt-header {
+      display: contents;
+  }
+  .gantt-date {
+      text-align: center;
+      padding: 0.5rem 0;
+      border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      color: var(--secondary-text);
+  }
+  .gantt-sprint-label, .gantt-task-row {
+      display: contents;
+  }
+  .gantt-sprint-label {
+      grid-column: 1 / -1;
+      padding: 0.5rem;
+      background: var(--card-background);
+      font-weight: bold;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      border-bottom: 1px solid var(--border-color);
+  }
+  .gantt-task-bar {
+      margin: 4px 0;
+      padding: 0.5rem;
+      border-radius: 4px;
+      color: var(--primary-text);
+      font-size: 0.8rem;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      position: relative;
+  }
+  .gantt-task-bar.subcontracted::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: repeating-linear-gradient(
+          -45deg,
+          rgba(255,255,255,0.05),
+          rgba(255,255,255,0.05) 5px,
+          transparent 5px,
+          transparent 10px
+      );
+  }
+  .gantt-task-bar.task-bar-todo { background-color: var(--task-todo-color); }
+  .gantt-task-bar.task-bar-inprogress { background-color: var(--task-inprogress-color); }
+  .gantt-task-bar.task-bar-review { background-color: var(--task-review-color); }
+  .gantt-task-bar.task-bar-done { background-color: var(--task-done-color); color: var(--background-color); }
+  .gantt-task-bar.overdue {
+    box-shadow: 0 0 0 2px var(--error-color) inset;
+  }
+  .gantt-task-bar.blocked {
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 77, 77, 0.4),
+        rgba(255, 77, 77, 0.4) 5px,
+        transparent 5px,
+        transparent 10px
+    );
+  }
+  .gantt-dependency-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+  }
+  .gantt-dependency-line {
+      stroke: var(--accent-color);
+      stroke-width: 1.5;
+      fill: none;
+  }
+  .gantt-dependency-arrow {
+      fill: var(--accent-color);
+  }
+
+  /* Kanban Board */
+  .kanban-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+  .kanban-column {
+    background-color: var(--background-color);
+    padding: 1rem;
+    border-radius: 8px;
+    height: 70vh;
+    overflow-y: auto;
+  }
+  .kanban-column h4 {
+    margin-bottom: 1rem;
+    text-align: center;
     color: var(--secondary-text);
   }
+  .kanban-card {
+    background-color: var(--card-background);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    position: relative;
+  }
+  .kanban-card.overdue {
+    box-shadow: 0 0 8px 1px var(--error-color);
+  }
+  .kanban-card.todo { border-left: 5px solid var(--task-todo-color); }
+  .kanban-card.inprogress { border-left: 5px solid var(--task-inprogress-color); }
+  .kanban-card.review { border-left: 5px solid var(--task-review-color); }
+  .kanban-card.done { border-left: 5px solid var(--task-done-color); opacity: 0.7; }
+  .subcontractor-label {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-size: 0.7rem;
+      background: var(--locked-color);
+      color: var(--primary-text);
+      padding: 2px 5px;
+      border-radius: 3px;
+  }
+  .kanban-status-select {
+    background: transparent;
+    border: none;
+    color: var(--secondary-text);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
   
-  .deployment-step-details p {
-    margin: 0.5rem 0;
+  /* Milestones Table */
+  .milestones-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .milestones-table th, .milestones-table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+  .milestones-table th { background: var(--card-background); }
+  .milestone-planned-date { text-decoration: line-through; color: var(--secondary-text); }
+  
+  /* Revision Control */
+  .impact-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .impact-table th, .impact-table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+  .impact-table th { background: var(--card-background); }
+  .impact-positive { color: var(--error-color); }
+  .impact-negative { color: var(--success-color); }
+  
+  /* Dashboard View */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+  }
+  .kpi-card {
+    background: var(--background-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+  }
+  .kpi-card h4 {
+    color: var(--secondary-text);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 400;
+  }
+  .kpi-card .value {
+    font-size: 2rem;
+    font-weight: bold;
+  }
+  .kpi-card .value.green { color: var(--status-green); }
+  .kpi-card .value.amber { color: var(--status-amber); }
+  .kpi-card .value.red { color: var(--status-red); }
+
+  /* Financial Summary Card */
+  .financial-summary-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .financial-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+  }
+  .financial-item span:first-child {
+    color: var(--secondary-text);
+  }
+  .financial-item .value {
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+  .financial-item .value.green { color: var(--status-green); }
+  .financial-item .value.red { color: var(--error-color); }
+  .financial-summary-grid hr {
+      border: 0;
+      border-top: 1px solid var(--border-color);
+      margin: 0.5rem 0;
+  }
+
+  .phase-tracker {
+      display: flex;
+      width: 100%;
+      height: 20px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--background-color);
+  }
+  .phase-tracker-segment {
+      flex: 1;
+      background: var(--locked-color);
+      transition: background-color 0.3s ease;
+  }
+  .phase-tracker-segment.completed {
+      background: var(--status-green);
+  }
+  .phase-tracker-segment.inprogress {
+      background: var(--status-amber);
+  }
+  .swimlane { margin-bottom: 1.5rem; }
+  .swimlane h4 { margin-bottom: 0.5rem; }
+  .swimlane-content {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+  }
+  .task-card {
+      background: var(--background-color);
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      white-space: nowrap;
+  }
+  
+  /* Change Deployment Modal */
+  .change-deployment-modal { max-width: 600px; }
+  .deployment-progress { text-align: center; color: var(--secondary-text); margin-bottom: 1.5rem; }
+  .deployment-step {
+      background-color: var(--background-color);
+      padding: 1.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+  }
+  .deployment-step-action {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      color: var(--background-color);
+      font-size: 0.9rem;
+      margin-right: 0.5rem;
+  }
+  .deployment-step-action.add { background-color: var(--success-color); }
+  .deployment-step-action.delete { background-color: var(--error-color); }
+  .deployment-step-action.edit { background-color: var(--inprogress-color); }
+  .deployment-step-target {
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin: 1rem 0;
+  }
+
+  /* Notification Bell */
+  .notification-bell {
+    position: relative;
+    cursor: pointer;
+  }
+  .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background-color: var(--error-color);
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: bold;
+  }
+  .notifications-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 1rem;
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 350px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    z-index: 1010;
+  }
+  .notifications-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .notifications-list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .notification-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .notification-item:hover {
+    background-color: var(--background-color);
+  }
+  .notification-item.unread {
+    background-color: rgba(0, 242, 255, 0.05);
+  }
+
+  /* Task Detail Modal */
+  .task-detail-modal {
+    max-width: 900px;
+    width: 95%;
+    max-height: 90vh;
+  }
+  .task-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .task-detail-header h2 {
+    margin: 0;
+  }
+  .task-detail-body {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    padding-top: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+  }
+  .task-detail-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .task-detail-sidebar h4 {
+    margin-bottom: 1rem;
+  }
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+  }
+  .detail-item span:first-child {
+    color: var(--secondary-text);
+  }
+  .comments-section .comment-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .comment {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .comment:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+  .comment-author { font-weight: bold; }
+  .comment-text { margin: 0.5rem 0; }
+  .comment-timestamp { font-size: 0.8rem; color: var(--secondary-text); }
+  .comment-form { display: flex; flex-direction: column; gap: 0.5rem; }
+  .comment-form button { align-self: flex-end; }
+  
+  @media (max-width: 768px) {
+    main { width: 95%; gap: 2rem; }
+    .dashboard-header .back-button {
+      position: static;
+      transform: none;
+      margin-bottom: 1rem;
+    }
+    .kpi-card .value { font-size: 1.5rem; }
+    .task-detail-body { grid-template-columns: 1fr; }
+    .task-detail-sidebar { grid-row: 1; }
   }
 `;

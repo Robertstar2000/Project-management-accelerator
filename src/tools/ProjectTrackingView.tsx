@@ -1,409 +1,241 @@
 
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
-import { TeamView } from './TeamView';
+import { TeamAssignmentsView } from './TeamView';
+import { Project, Task, User, Milestone, Sprint } from '../types';
+import { WorkloadView } from './WorkloadView';
 
-const getHealthChipClass = (health) => {
-    switch (health) {
-        case 'On Track': return 'chip-green';
-        case 'At Risk': return 'chip-amber';
-        case 'Delayed': return 'chip-red';
-        default: return '';
+const parseResourcesFromMarkdown = (markdownText: string): string[] => {
+    if (!markdownText) return [];
+    const lines = markdownText.split('\n');
+    const resourceSectionKeywords = ['software', 'hardware', 'partners', 'tools'];
+    let resourceLines: string[] = [];
+    let inSection = false;
+    for (const line of lines) {
+        if (line.match(/^#+/)) {
+            inSection = resourceSectionKeywords.some(keyword => line.toLowerCase().includes(keyword));
+        }
+        if (inSection && line.match(/^[-*]\s+/)) {
+            resourceLines.push(line);
+        }
     }
+    return resourceLines.map(line => line.replace(/^[-*]\s+/, '').split(':')[0].trim());
 };
 
-const diffInDays = (date1, date2) => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
-};
+const ResourcesView = ({ project, onUpdateProject }) => {
+    const [resources, setResources] = useState(project.resources || []);
 
-const statusDescriptions = {
-    todo: 'To Do: Task has not been started.',
-    inprogress: 'In Progress: Task is actively being worked on.',
-    review: 'In Review: Work is complete and awaiting approval.',
-    done: 'Done: Task is fully complete and approved.',
-};
+    const handleUpdate = (index, field, value) => {
+        const newResources = [...resources];
+        newResources[index] = { ...newResources[index], [field]: value };
+        setResources(newResources);
+    };
 
-const TaskListView = ({ tasks, onUpdateTask, team }) => {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [dateErrors, setDateErrors] = useState({});
-    const taskRefs = useRef({});
-
-    const filteredTasks = useMemo(() => {
-        return tasks.filter(t => 
-            t.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [tasks, searchQuery]);
-    
-    useEffect(() => {
-        // Scroll to the first incomplete task
-        const firstIncompleteTask = tasks.find(t => t.status !== 'done');
-        if (firstIncompleteTask) {
-            const element = taskRefs.current[firstIncompleteTask.id];
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-    }, [tasks]);
-
-
-    if (!tasks || tasks.length === 0) {
-        return <p>Tasks will be populated here once the 'Detailed Plans (WBS/WRS)' and 'Project Timeline' documents are approved.</p>;
-    }
-
-    const handleFieldChange = (taskId, field, value) => {
-        const taskToUpdate = tasks.find(t => t.id === taskId);
-        if (!taskToUpdate) return;
-
-        // Create a temporary object with the potential new value for validation
-        const tempUpdatedTask = { ...taskToUpdate, [field]: value };
-        let validationError = null;
-
-        // Date validation logic
-        if (field === 'endDate' && tempUpdatedTask.startDate && value) {
-            if (new Date(value) < new Date(tempUpdatedTask.startDate)) {
-                validationError = 'End date cannot be before start date.';
-            }
-        }
-        if (field === 'startDate' && tempUpdatedTask.endDate && value) {
-            if (new Date(value) > new Date(tempUpdatedTask.endDate)) {
-                validationError = 'Start date cannot be after end date.';
-            }
-        }
-        if (field === 'actualEndDate' && tempUpdatedTask.startDate && value) {
-            if (new Date(value) < new Date(tempUpdatedTask.startDate)) {
-                validationError = 'Actual end date cannot be before start date.';
-            }
-        }
-
-        if (validationError) {
-            setDateErrors(prev => ({
-                ...prev,
-                [taskId]: { ...prev[taskId], [field]: validationError }
-            }));
-            // Do not proceed with update
-            return;
-        }
-        
-        // Clear any previous error for this field if validation passes
-        setDateErrors(prev => {
-            const newErrorsForTask = { ...prev[taskId] };
-            delete newErrorsForTask[field];
-            return { ...prev, [taskId]: newErrorsForTask };
-        });
-
-        // If validation passes, proceed with the update
-        let updatedTask = { ...taskToUpdate, [field]: value };
-    
-        // Auto-set actual end date when task is marked as done
-        if (field === 'status' && value === 'done' && !updatedTask.actualEndDate) {
-            updatedTask.actualEndDate = new Date().toISOString().split('T')[0];
-        }
-    
-        // Handle empty values for numeric/date fields
-        const isNumeric = ['actualTime', 'actualCost'].includes(field);
-        if (isNumeric) {
-            updatedTask[field] = value === '' ? null : Number(value);
-        } else if (['actualEndDate', 'startDate', 'endDate'].includes(field)) {
-            updatedTask[field] = value === '' ? null : value;
-        }
-    
-        onUpdateTask(taskId, updatedTask);
+    const handleSave = () => {
+        onUpdateProject({ resources });
     };
 
     return (
         <div>
-            <div className="form-group" style={{ maxWidth: '400px', marginBottom: '1rem' }}>
-                <input
-                    type="text"
-                    placeholder="Search for a task..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search tasks"
-                />
-            </div>
+            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>Track estimated vs. actual costs for non-labor resources.</p>
             <table className="task-list-table">
-                <thead>
-                    <tr>
-                        <th>Task Name</th>
-                        <th>Assigned To</th>
-                        <th>Subcontractor Task</th>
-                        <th>Dependencies</th>
-                        <th>Status</th>
-                        <th>Planned Start Date</th>
-                        <th>Planned Due Date</th>
-                        <th>Actual Due Date</th>
-                        <th>Actual Time (days)</th>
-                        <th>Actual Cost ($)</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Resource Name</th><th>Estimated Cost</th><th>Actual Cost</th></tr></thead>
                 <tbody>
-                    {filteredTasks.map(task => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0); // Normalize to start of day
-                        const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
-
-                        return (
-                            <tr 
-                                key={task.id} 
-                                // FIX: The ref callback must not return a value. Encapsulating the assignment in curly braces ensures it returns undefined.
-                                ref={el => { taskRefs.current[task.id] = el; }}
-                                className={isOverdue ? 'task-row-overdue' : ''}
-                                title={isOverdue ? `Overdue: Planned due date was ${task.endDate}` : ''}
-                            >
-                                <td>{task.name}</td>
-                                <td>
-                                    {(() => {
-                                        if (!task.role) return 'N/A';
-                                        const assignedPerson = team.find(member => member.role === task.role);
-                                        return assignedPerson ? assignedPerson.name : <span style={{color: 'var(--secondary-text)'}}>Unassigned</span>;
-                                    })()}
-                                </td>
-                                <td>{task.isSubcontracted ? 'Yes' : 'No'}</td>
-                                <td>
-                                    <select
-                                        multiple
-                                        value={task.dependsOn || []}
-                                        onChange={(e) => {
-                                            const selectedIds = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
-                                            handleFieldChange(task.id, 'dependsOn', selectedIds);
-                                        }}
-                                        className="dependency-select"
-                                        aria-label={`Dependencies for ${task.name}`}
-                                    >
-                                        {tasks.filter(t => t.id !== task.id).map(depTask => (
-                                            <option key={depTask.id} value={depTask.id}>
-                                                {depTask.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </td>
-                                <td>
-                                    <select 
-                                        value={task.status} 
-                                        onChange={(e) => handleFieldChange(task.id, 'status', e.target.value)}
-                                        aria-label={`Status for ${task.name}`}
-                                    >
-                                        <option value="todo">To Do</option>
-                                        <option value="inprogress">In Progress</option>
-                                        <option value="review">In Review</option>
-                                        <option value="done">Done</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input
-                                        type="date"
-                                        value={task.startDate ?? ''}
-                                        onChange={(e) => handleFieldChange(task.id, 'startDate', e.target.value)}
-                                        aria-label={`Planned start date for ${task.name}`}
-                                    />
-                                    {dateErrors[task.id]?.startDate && <div className="task-date-error">{dateErrors[task.id].startDate}</div>}
-                                </td>
-                                <td>
-                                    <input
-                                        type="date"
-                                        value={task.endDate ?? ''}
-                                        onChange={(e) => handleFieldChange(task.id, 'endDate', e.target.value)}
-                                        aria-label={`Planned due date for ${task.name}`}
-                                    />
-                                    {dateErrors[task.id]?.endDate && <div className="task-date-error">{dateErrors[task.id].endDate}</div>}
-                                </td>
-                                <td>
-                                    <input
-                                        type="date"
-                                        value={task.actualEndDate ?? ''}
-                                        onChange={(e) => handleFieldChange(task.id, 'actualEndDate', e.target.value)}
-                                        aria-label={`Actual due date for ${task.name}`}
-                                    />
-                                     {dateErrors[task.id]?.actualEndDate && <div className="task-date-error">{dateErrors[task.id].actualEndDate}</div>}
-                                </td>
-                                <td>
-                                    <input 
-                                        type="number" 
-                                        value={task.actualTime ?? ''}
-                                        onChange={(e) => handleFieldChange(task.id, 'actualTime', e.target.value)}
-                                        placeholder="e.g. 5"
-                                        style={{maxWidth: '100px'}}
-                                        aria-label={`Actual time for ${task.name}`}
-                                    />
-                                </td>
-                                <td>
-                                    <input 
-                                        type="number" 
-                                        value={task.actualCost ?? ''}
-                                        onChange={(e) => handleFieldChange(task.id, 'actualCost', e.target.value)}
-                                        placeholder="e.g. 1500"
-                                        style={{maxWidth: '120px'}}
-                                        aria-label={`Actual cost for ${task.name}`}
-                                    />
-                                </td>
-                            </tr>
-                        );
-                    })}
+                    {resources.map((resource, index) => (
+                        <tr key={index}>
+                            <td><input type="text" value={resource.name} onChange={(e) => handleUpdate(index, 'name', e.target.value)} /></td>
+                            <td><input type="number" value={resource.estimate || ''} onChange={(e) => handleUpdate(index, 'estimate', parseFloat(e.target.value))} /></td>
+                            <td><input type="number" value={resource.actual || ''} onChange={(e) => handleUpdate(index, 'actual', parseFloat(e.target.value))} /></td>
+                        </tr>
+                    ))}
                 </tbody>
             </table>
+            <button onClick={handleSave} className="button" style={{marginTop: '1rem'}}>Save Resource Costs</button>
         </div>
     );
 };
 
-const GanttChart = ({ tasks, sprints, projectStartDate, projectEndDate }) => {
-    if (!tasks || !sprints || tasks.length === 0) return <p>Timeline will be populated here once tasks are generated and approved.</p>;
 
+const TaskListView = ({ tasks, team, onTaskClick }) => {
+    if (!tasks || tasks.length === 0) return <p>Tasks will be populated here once planning is complete.</p>;
+    
+    return (
+        <table className="task-list-table">
+            <thead>
+                <tr><th>Task Name</th><th>Assigned To</th><th>Status</th><th>Due Date</th></tr>
+            </thead>
+            <tbody>
+                {tasks.map(task => {
+                    const isOverdue = task.status !== 'done' && new Date(task.endDate) < new Date();
+                    return (
+                        <tr key={task.id} onClick={() => onTaskClick(task)} className={isOverdue ? 'task-row-overdue' : ''}>
+                            <td>
+                                {task.name}
+                                {task.recurrence?.interval && task.recurrence.interval !== 'none' && (
+                                    <span title={`Recurs ${task.recurrence.interval}`} style={{ marginLeft: '8px', cursor: 'default' }}>🔄</span>
+                                )}
+                            </td>
+                            <td>{team.find(member => member.role === task.role)?.name || 'Unassigned'}</td>
+                            <td>{task.status}</td>
+                            <td>{task.endDate}</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    );
+};
+
+interface GanttChartProps {
+    tasks: Task[];
+    sprints: Sprint[];
+    projectStartDate: string;
+    projectEndDate: string;
+    onTaskClick: (task: Task) => void;
+}
+
+interface DependencyLine {
+    id: string;
+    path: string;
+    arrow: string;
+}
+
+const GanttChart: React.FC<GanttChartProps> = ({ tasks, sprints, projectStartDate, projectEndDate, onTaskClick }) => {
+    if (!tasks || !sprints || tasks.length === 0) return <p>Timeline will be populated here once tasks are generated.</p>;
     const containerRef = useRef<HTMLDivElement>(null);
     const taskBarRefs = useRef(new Map());
-    const [dependencyLines, setDependencyLines] = useState([]);
+    const [dependencyLines, setDependencyLines] = useState<DependencyLine[]>([]);
+    const diffInDays = (d1, d2) => Math.round((new Date(d2).getTime() - new Date(d1).getTime()) / (1000 * 3600 * 24));
     
     const totalDays = Math.max(1, diffInDays(projectStartDate, projectEndDate) + 1);
-    const dateArray = Array.from({ length: totalDays }, (_, i) => {
-        const date = new Date(projectStartDate);
-        date.setDate(date.getDate() + i);
-        return date;
-    });
+    const dateArray = Array.from({ length: totalDays }, (_, i) => new Date(new Date(projectStartDate).setDate(new Date(projectStartDate).getDate() + i)));
+    
+    const tasksWithRowIndex = useMemo(() => {
+        let taskIndexCounter = 0;
+        return sprints.map((sprint: Sprint): { sprint: Sprint, tasks: (Task & { rowIndex: number })[] } => {
+            const sprintTasks = tasks.filter(t => t.sprintId === sprint.id);
+            const sprintTasksWithIndex = sprintTasks.map(task => ({
+                ...task,
+                rowIndex: taskIndexCounter++
+            }));
+            return { sprint, tasks: sprintTasksWithIndex };
+        });
+    }, [tasks, sprints]);
+    
+    const totalRows = tasks.length;
 
     useLayoutEffect(() => {
-        if (!containerRef.current) return;
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const lines = [];
+        const lines: DependencyLine[] = [];
+        const taskMap = new Map<string, Task>(tasks.map(t => [t.id, t]));
+        for (const task of tasks) {
+            if (task.dependsOn) {
+                for (const depId of task.dependsOn) {
+                    const prereqTask = taskMap.get(depId);
+                    if (prereqTask) {
+                        const fromEl = taskBarRefs.current.get(prereqTask.id);
+                        const toEl = taskBarRefs.current.get(task.id);
+                        if (fromEl && toEl && containerRef.current) {
+                            const containerRect = containerRef.current.getBoundingClientRect();
+                            const fromRect = fromEl.getBoundingClientRect();
+                            const toRect = toEl.getBoundingClientRect();
 
-        tasks.forEach(task => {
-            if (task.dependsOn?.length) {
-                const currentTaskEl = taskBarRefs.current.get(task.id);
-                if (!currentTaskEl) return;
-                
-                const currRect = currentTaskEl.getBoundingClientRect();
-
-                task.dependsOn.forEach(depId => {
-                    const prerequisiteTaskEl = taskBarRefs.current.get(depId);
-                    if (!prerequisiteTaskEl) return;
-
-                    const preRect = prerequisiteTaskEl.getBoundingClientRect();
-                    
-                    const startX = preRect.right - containerRect.left + containerRef.current.scrollLeft;
-                    const startY = preRect.top + preRect.height / 2 - containerRect.top;
-                    const endX = currRect.left - containerRect.left + containerRef.current.scrollLeft;
-                    const endY = currRect.top + currRect.height / 2 - containerRect.top;
-
-                    const midX = endX - 10;
-                    const path = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
-
-                    lines.push({ id: `${depId}-${task.id}`, path });
-                });
+                            const fromX = fromRect.right - containerRect.left + containerRef.current.scrollLeft;
+                            const fromY = fromRect.top - containerRect.top + fromRect.height / 2;
+                            const toX = toRect.left - containerRect.left + containerRef.current.scrollLeft;
+                            const toY = toRect.top - containerRect.top + toRect.height / 2;
+                            
+                            lines.push({
+                                id: `${prereqTask.id}-${task.id}`,
+                                path: `M ${fromX} ${fromY} L ${toX - 8} ${toY}`,
+                                arrow: `M ${toX - 8} ${toY - 4} L ${toX} ${toY} L ${toX - 8} ${toY + 4} Z`,
+                            });
+                        }
+                    }
+                }
             }
-        });
+        }
         setDependencyLines(lines);
-    }, [tasks, projectStartDate, projectEndDate]);
+    }, [tasksWithRowIndex, projectStartDate, projectEndDate, tasks]);
 
     return (
         <div className="gantt-container" ref={containerRef}>
-            <div className="gantt-grid" style={{ gridTemplateColumns: `150px repeat(${totalDays}, 1fr)`}}>
-                <div style={{gridColumn: '1 / 2'}}></div> {/* Spacer */}
-                <div className="gantt-header" style={{gridTemplateColumns: `repeat(${totalDays}, 1fr)`}}>
-                    {dateArray.map(date => (
-                        <div key={date.toISOString()} className="gantt-date" title={date.toLocaleDateString()}>
-                            {date.getDate() === 1 ? date.toLocaleString('default', { month: 'short' }) : date.getDate()}
-                        </div>
-                    ))}
-                </div>
-                
-                {sprints.map(sprint => (
-                    <React.Fragment key={sprint.id}>
-                        <div className="gantt-sprint-label">{sprint.name}</div>
-                        {tasks.filter(t => t.sprintId === sprint.id).map(task => {
-                            const startOffset = diffInDays(projectStartDate, task.startDate) + 1;
-                            const duration = diffInDays(task.startDate, task.endDate) + 1;
-                            const isBlocked = task.dependsOn?.some(depId => {
-                                const prereq = tasks.find(t => t.id === depId);
-                                return prereq && prereq.status !== 'done';
-                            });
-
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
-                            const statusDesc = statusDescriptions[task.status] || 'Unknown Status';
-                            let title = isBlocked 
-                                ? 'This task is blocked by an incomplete dependency.' 
-                                : `${task.name}\nStatus: ${statusDesc}${isOverdue ? '\nOVERDUE' : ''}`;
-                            if (task.isSubcontracted) {
-                                title += '\n(Subcontractor Task)';
-                            }
-
-                            return (
-                                <div className="gantt-task-row" key={task.id} style={{gridTemplateColumns: `repeat(${totalDays}, 1fr)`}}>
-                                    <div 
-                                        // FIX: The ref callback must not return a value. Using a more robust callback that adds/removes the element from the map on mount/unmount.
-                                        ref={el => { el ? taskBarRefs.current.set(task.id, el) : taskBarRefs.current.delete(task.id); }}
-                                        className={`gantt-task-bar task-bar-${task.status} ${isBlocked ? 'blocked' : ''} ${isOverdue ? 'overdue' : ''} ${task.isSubcontracted ? 'subcontracted' : ''}`}
-                                        style={{ gridColumn: `${startOffset} / span ${duration}` }}
-                                        title={title}
-                                    >
-                                        {task.name}
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </React.Fragment>
+            <div className="gantt-grid" style={{ gridTemplateColumns: `repeat(${totalDays}, minmax(40px, 1fr))`, gridAutoRows: '30px', gap: '5px 0' }}>
+                 {dateArray.map(date => (
+                    <div key={date.toISOString()} className="gantt-date" style={{ gridRow: 1 }}>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                 ))}
+                
+                {tasksWithRowIndex.flatMap(({ sprint, tasks: sprintTasks }, sprintIndex) => [
+                    <div key={sprint.id} className="gantt-sprint-label" style={{ gridColumn: `1 / span ${totalDays}`, gridRow: (sprintTasks[0]?.rowIndex ?? 0) + 2, background: 'none', fontWeight: 'normal', color: 'var(--secondary-text)' }}>{sprint.name}</div>,
+                    ...sprintTasks.map((task: Task & { rowIndex: number }) => {
+                         const startOffset = diffInDays(projectStartDate, task.startDate);
+                         const duration = diffInDays(task.startDate, task.endDate) + 1;
+                         const isOverdue = task.status !== 'done' && new Date(task.endDate) < new Date();
+                         const isBlocked = task.dependsOn?.some(depId => tasks.find(t => t.id === depId)?.status !== 'done');
+                         
+                         if (startOffset < 0 || startOffset >= totalDays) return null;
+
+                         return (
+                             <div
+                                 key={task.id}
+                                 ref={el => taskBarRefs.current.set(task.id, el)}
+                                 className={`gantt-task-bar task-bar-${task.status} ${isOverdue ? 'overdue' : ''} ${isBlocked ? 'blocked' : ''} ${task.isSubcontracted ? 'subcontracted' : ''}`}
+                                 style={{
+                                     gridRow: task.rowIndex + 2,
+                                     gridColumn: `${startOffset + 1} / span ${Math.max(1, duration)}`,
+                                 }}
+                                 onClick={() => onTaskClick(task)}
+                                 title={`${task.name} (${task.status})`}
+                             >
+                                 {task.name}
+                                 {task.recurrence?.interval && task.recurrence.interval !== 'none' && (
+                                     <span title={`Recurs ${task.recurrence.interval}`} style={{ marginLeft: '8px', cursor: 'default' }}>🔄</span>
+                                 )}
+                             </div>
+                         );
+                    })
+                ])}
             </div>
-             <svg className="gantt-dependency-svg">
-                <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                        <path d="M 0 0 L 10 5 L 0 10 z" className="gantt-dependency-arrow" />
-                    </marker>
-                </defs>
+             <svg className="gantt-dependency-svg" style={{ height: (totalRows + 1) * 35 }}>
                 {dependencyLines.map(line => (
-                    <path key={line.id} d={line.path} className="gantt-dependency-line" markerEnd="url(#arrow)" />
+                    <g key={line.id}>
+                        <path d={line.path} className="gantt-dependency-line" />
+                        <path d={line.arrow} className="gantt-dependency-arrow" />
+                    </g>
                 ))}
             </svg>
         </div>
     );
 };
 
-const KanbanView = ({ tasks, onUpdateTask }) => {
-    if (!tasks || tasks.length === 0) {
-        return <p>Kanban board will be populated here once tasks are generated and approved.</p>;
-    }
-    const columns = {
-        todo: 'To Do',
-        inprogress: 'In Progress',
-        review: 'In Review',
-        done: 'Done',
-    };
+const KanbanBoard = ({ tasks, onUpdateTask, onTaskClick }) => {
+    if (!tasks || tasks.length === 0) return <p>Kanban board will be populated here once tasks are generated.</p>;
+    const statuses: Task['status'][] = ['todo', 'inprogress', 'review', 'done'];
 
-    const handleStatusChange = (task, newStatus) => {
-        onUpdateTask(task.id, { ...task, status: newStatus });
+    const handleStatusChange = (e, task, currentStatus) => {
+        e.stopPropagation(); // prevent opening modal
+        const newStatus = e.target.value;
+        onUpdateTask(task.id, { status: newStatus }, currentStatus);
     };
 
     return (
         <div className="kanban-board">
-            {Object.entries(columns).map(([statusKey, statusName]) => (
-                <div className="kanban-column" key={statusKey}>
-                    <h4>{statusName}</h4>
-                    {tasks.filter(t => t.status === statusKey).map(task => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0); // Normalize to start of day
-                        const isOverdue = task.status !== 'done' && new Date(task.endDate) < today;
-                        const cardTitle = `${statusDescriptions[task.status]}${isOverdue ? '\nOVERDUE' : ''}${task.isSubcontracted ? '\n(Subcontractor Task)' : ''}`;
-
+            {statuses.map(status => (
+                <div key={status} className="kanban-column">
+                    <h4>{status.toUpperCase()}</h4>
+                    {tasks.filter(t => t.status === status).map(task => {
+                        const isOverdue = task.status !== 'done' && new Date(task.endDate) < new Date();
                         return (
-                            <div className={`kanban-card ${task.status} ${isOverdue ? 'overdue' : ''}`} key={task.id} title={cardTitle}>
-                                {task.isSubcontracted && <span className="subcontractor-label">SUB</span>}
+                             <div key={task.id} className={`kanban-card ${status} ${isOverdue ? 'overdue' : ''}`} onClick={() => onTaskClick(task)}>
+                                {task.isSubcontracted && <span className="subcontractor-label">Sub</span>}
                                 <p>{task.name}</p>
-                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem'}}>
-                                    <small>{task.endDate ? `Due: ${new Date(task.endDate).toLocaleDateString()}` : ''}</small>
-                                    <select 
-                                        value={task.status} 
-                                        onChange={(e) => handleStatusChange(task, e.target.value)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="kanban-status-select"
-                                        aria-label={`Change status for ${task.name}`}
-                                    >
-                                        <option value="todo">To Do</option>
-                                        <option value="inprogress">In Progress</option>
-                                        <option value="review">In Review</option>
-                                        <option value="done">Done</option>
-                                    </select>
-                                </div>
-                            </div>
+                                <select 
+                                    value={task.status} 
+                                    onChange={(e) => handleStatusChange(e, task, status)} 
+                                    className="kanban-status-select"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                             </div>
                         );
                     })}
                 </div>
@@ -412,135 +244,103 @@ const KanbanView = ({ tasks, onUpdateTask }) => {
     );
 };
 
-const MilestoneStatusControl = ({ milestone, onUpdateMilestone }) => {
-    const isStarted = milestone.status === 'In Progress' || milestone.status === 'Completed';
-    const isCompleted = milestone.status === 'Completed';
-    const today = new Date().toISOString().split('T')[0];
+const MilestonesView = ({ milestones, tasks, onUpdateMilestone }) => {
+    if (!milestones || milestones.length === 0) return <p>Milestones will be populated here once planning is complete.</p>;
 
-    const handleStartedChange = (checked) => {
-        if (checked) {
-            onUpdateMilestone(milestone.id, {
-                status: 'In Progress',
-                actualStartDate: milestone.actualStartDate || today,
-            });
-        } else {
-            // Un-starting also un-completes.
-            onUpdateMilestone(milestone.id, {
-                status: 'Not Started',
-                actualStartDate: null,
-                actualCompletedDate: null,
-            });
-        }
+    const getMilestoneHealth = (milestone) => {
+        const relevantTasks = tasks.filter(t => new Date(t.endDate) <= new Date(milestone.plannedDate));
+        if (relevantTasks.length === 0) return { status: 'On Track', color: 'var(--status-green)' };
+        const overdueTasks = relevantTasks.filter(t => t.status !== 'done' && new Date(t.endDate) < new Date());
+        if (new Date(milestone.plannedDate) < new Date()) return { status: 'Overdue', color: 'var(--status-red)' };
+        if (overdueTasks.length > 0) return { status: 'At Risk', color: 'var(--status-amber)' };
+        return { status: 'On Track', color: 'var(--status-green)' };
     };
 
-    const handleCompletedChange = (checked) => {
-        if (checked) {
-            onUpdateMilestone(milestone.id, {
-                status: 'Completed',
-                actualCompletedDate: milestone.actualCompletedDate || today,
-            });
-        } else {
-            onUpdateMilestone(milestone.id, {
-                status: 'In Progress',
-                actualCompletedDate: null,
-            });
-        }
+    return (
+        <table className="milestones-table">
+            <thead>
+                <tr><th>Milestone Name</th><th>Planned Date</th><th>Actual Date</th><th>Status</th><th>Health</th></tr>
+            </thead>
+            <tbody>
+                {milestones.map(m => {
+                    const health = getMilestoneHealth(m);
+                    return (
+                        <tr key={m.id}>
+                            <td>{m.name}</td>
+                            <td className={m.actualDate ? 'milestone-planned-date' : ''}>{m.plannedDate}</td>
+                            <td>
+                                <input 
+                                    type="date" 
+                                    value={m.actualDate || ''} 
+                                    onChange={e => onUpdateMilestone(m.id, { actualDate: e.target.value, status: e.target.value ? 'Completed' : 'Planned' })} 
+                                />
+                            </td>
+                            <td>
+                                <select value={m.status || 'Planned'} onChange={e => onUpdateMilestone(m.id, { status: e.target.value })}>
+                                    <option>Planned</option>
+                                    <option>Completed</option>
+                                </select>
+                            </td>
+                            <td style={{ color: health.color, fontWeight: 'bold' }}>{health.status}</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    );
+};
+
+interface ProjectTrackingViewProps {
+    project: Project;
+    onUpdateTask: (taskId: string, updatedTaskData: Partial<Task>, previousStatus: string) => void;
+    onUpdateMilestone: (milestoneId: string, updatedMilestoneData: Partial<Milestone>) => void;
+    onUpdateTeam: (newTeam: any, newOwnerId?: string) => void;
+    onUpdateProject: (update: Partial<Project>) => void;
+    onTaskClick: (task: Task) => void;
+    currentUser: User;
+}
+
+export const ProjectTrackingView: React.FC<ProjectTrackingViewProps> = ({ project, onUpdateTask, onUpdateMilestone, onUpdateTeam, onUpdateProject, onTaskClick, currentUser }) => {
+    const [trackingView, setTrackingView] = useState('Timeline');
+
+    useEffect(() => {
+        const savedView = localStorage.getItem(`hmap-tracking-view-${project.id}`);
+        if (savedView) setTrackingView(savedView);
+    }, [project.id]);
+
+    const handleViewChange = (view) => {
+        setTrackingView(view);
+        localStorage.setItem(`hmap-tracking-view-${project.id}`, view);
+    };
+
+    const views = {
+        'Timeline': <GanttChart tasks={project.tasks} sprints={project.sprints} projectStartDate={project.startDate} projectEndDate={project.endDate} onTaskClick={onTaskClick} />,
+        'Task List': <TaskListView tasks={project.tasks} team={project.team} onTaskClick={onTaskClick} />,
+        'Kanban Board': <KanbanBoard tasks={project.tasks} onUpdateTask={onUpdateTask} onTaskClick={onTaskClick} />,
+        'Workload': <WorkloadView project={project} />,
+        'Milestones': <MilestonesView milestones={project.milestones} tasks={project.tasks} onUpdateMilestone={onUpdateMilestone} />,
+        'Team': <TeamAssignmentsView project={project} onUpdateTeam={onUpdateTeam} currentUser={currentUser} />,
+        'Resources': <ResourcesView project={project} onUpdateProject={onUpdateProject} />,
     };
     
-    return (
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isStarted} onChange={(e) => handleStartedChange(e.target.checked)} style={{ transform: 'scale(1.5)' }} aria-label={`Mark ${milestone.name} as started`} />
-                Started
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isStarted ? 'pointer' : 'not-allowed', opacity: isStarted ? 1 : 0.5 }}>
-                <input type="checkbox" checked={isCompleted} disabled={!isStarted} onChange={(e) => handleCompletedChange(e.target.checked)} style={{ transform: 'scale(1.5)' }} aria-label={`Mark ${milestone.name} as completed`}/>
-                Completed
-            </label>
-        </div>
-    );
-};
-
-const MilestonesView = ({ milestones, onUpdateMilestone }) => {
-    if (!milestones || milestones.length === 0) {
-        return <p>Milestones will be populated here once the 'Detailed Plans (WBS/WRS)' and 'Project Timeline' documents are approved.</p>;
-    }
-
-    return (
-        <div>
-            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>
-                Track the project's major milestones. These are generated by the AI from your project plan and can be updated here as work progresses.
-            </p>
-            <table className="milestones-table">
-                <thead>
-                    <tr>
-                        <th>Milestone</th>
-                        <th style={{width: '250px'}}>Status</th>
-                        <th>Planned Date</th>
-                        <th>Actual Start</th>
-                        <th>Actual Completion</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {milestones.map(milestone => (
-                        <tr key={milestone.id}>
-                            <td><strong>{milestone.name}</strong></td>
-                            <td>
-                                <MilestoneStatusControl milestone={milestone} onUpdateMilestone={onUpdateMilestone} />
-                            </td>
-                            <td>
-                                <span className={milestone.actualStartDate ? 'milestone-planned-date' : ''}>
-                                    {milestone.plannedDate}
-                                </span>
-                            </td>
-                            <td>{milestone.actualStartDate || '—'}</td>
-                            <td>{milestone.actualCompletedDate || '—'}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-};
-
-export const ProjectTrackingView = ({ project, tasks, sprints, milestones, projectStartDate, projectEndDate, onUpdateTask, onUpdateTeam, onUpdateMilestone }) => {
-    const [view, setView] = useState(() => {
-        return localStorage.getItem(`hmap-tracking-view-${project.id}`) || 'Timeline';
-    });
-
-    const handleSetView = (newView) => {
-        setView(newView);
-        localStorage.setItem(`hmap-tracking-view-${project.id}`, newView);
-    };
-
-    const renderView = () => {
-        switch (view) {
-            case 'Timeline':
-                return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
-            case 'Task List':
-                return <TaskListView tasks={tasks} onUpdateTask={onUpdateTask} team={project.team || []} />;
-            case 'Kanban':
-                return <KanbanView tasks={tasks} onUpdateTask={onUpdateTask} />;
-            case 'Milestones':
-                return <MilestonesView milestones={milestones} onUpdateMilestone={onUpdateMilestone} />;
-            case 'Team':
-                return <TeamView project={project} onUpdateTeam={onUpdateTeam} />;
-            default:
-                return <GanttChart tasks={tasks} sprints={sprints} projectStartDate={projectStartDate} projectEndDate={projectEndDate} />;
-        }
-    };
+    const viewOrder = ['Timeline', 'Task List', 'Kanban Board', 'Workload', 'Milestones', 'Team', 'Resources'];
 
     return (
         <div className="tool-card">
-            <h2 className="subsection-title">Project Tracking</h2>
             <div className="tracking-view-tabs">
-                <button onClick={() => handleSetView('Timeline')} className={view === 'Timeline' ? 'button button-primary' : 'button'}>Timeline</button>
-                <button onClick={() => handleSetView('Task List')} className={view === 'Task List' ? 'button button-primary' : 'button'}>Task List</button>
-                <button onClick={() => handleSetView('Kanban')} className={view === 'Kanban' ? 'button button-primary' : 'button'}>Kanban Board</button>
-                <button onClick={() => handleSetView('Milestones')} className={view === 'Milestones' ? 'button button-primary' : 'button'}>Milestones</button>
-                <button onClick={() => handleSetView('Team')} className={view === 'Team' ? 'button button-primary' : 'button'}>Team</button>
+                {viewOrder.map(viewName => (
+                    <button
+                        key={viewName}
+                        onClick={() => handleViewChange(viewName)}
+                        className={`button ${trackingView === viewName ? 'button-primary' : ''}`}
+                    >
+                        {viewName}
+                    </button>
+                ))}
             </div>
-            {renderView()}
+            <div>
+                {views[trackingView]}
+            </div>
         </div>
     );
 };

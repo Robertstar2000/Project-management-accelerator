@@ -1,75 +1,88 @@
 # Project Management Accelerator
 
-An AI-powered project management companion that guides you through the full lifecycle of a project using the proven **Hyper-Agile Management Process (HMAP)**. This tool automates documentation, accelerates planning, and provides clear visibility into project execution.
+An AI-powered project management companion that guides you through the full lifecycle of a project using the proven **Hyper-Agile Management Process (HMAP)**. This tool automates documentation, accelerates planning, and provides clear visibility into project execution for individuals and teams.
 
 ## Core Features
 
 -   **✨ AI-Powered Planning**: Generate comprehensive project documents, from concept proposals to detailed work breakdowns, in seconds using Google's Gemini API.
+-   **🔐 Multi-User & Team-Based**: Secure user accounts ensure that projects are private. Assign roles and collaborate with your team.
 -   **🧭 Structured Workflow**: Follow a clear, phase-based methodology (HMAP) that ensures all critical planning steps are completed in the right order, preventing downstream issues.
--   **📊 Comprehensive Tracking**: Visualize your project's progress with an interactive Gantt chart, Kanban board, and milestone tracker. Define and visualize task dependencies to manage complex workflows.
+-   **📊 Comprehensive Tracking**: Visualize your project's progress with an interactive Gantt chart, Kanban board, workload heat map, and milestone tracker.
+-   **💬 Collaboration Tools**: Dive into task details, leave comments, attach files, and receive automatic notifications when your work is unblocked.
 -   **🎛️ Dynamic What-If Analysis**: Instantly model the impact of change requests on your budget and timeline before committing, enabling data-driven decision-making.
 
 ---
 
 ## User Operations Manual
 
-### 1. Getting Started: API Key
+### 1. Getting Started: Account & API Key
 
-The application requires a Google Gemini API key to power its AI features.
+**User Account:**
+-   The application now supports multiple users. You can **Sign Up** for a new account or **Login** to an existing one.
+-   All projects you create are tied to your account. You can invite team members and transfer ownership.
 
--   Upon first launch, you will be prompted to enter an API key.
+**API Key:**
+-   The application requires a Google Gemini API key to power its AI features.
+-   Upon first launch, you will be prompted to enter an API key from the landing page.
 -   You can get your free key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 -   Your key is stored securely in your browser's local storage and is never sent to any server besides Google's.
--   Once a valid key is saved, you can create and manage projects.
 
-### 2. Creating a New Project
+### 2. My Work & Project Management
 
-1.  Click the **"New Project"** or **"Start New Project"** button.
-2.  In the modal, select a project mode ('Full Scale' or 'Minimal Viable'), provide a **Project Name**, and select a **Discipline** from the available templates. The selected discipline is crucial as it instructs the AI to use professional, industry-standard terminology in all generated documents.
-3.  Click **"Create Project"**. You will be taken directly to the Project Dashboard.
+-   **My Work View**: The landing page now features a "My Work" dashboard, which automatically aggregates all tasks assigned to you across all your projects, conveniently sorted by due date.
+-   **Project Creation**: Click **"Start Working"** or **"New Project"**. The project you create will be owned by you.
+-   **Project List**: The main project list shows only projects that you own or are a team member of.
 
 ### 3. The Project Dashboard
 
-The dashboard is your central hub for managing a selected project.
+The dashboard is your central hub for managing a project.
 
--   **Navigation**: Use the top navigation tabs (`Dashboard`, `Project Phases`, `Project Tracking`, etc.) to switch between different management tools.
--   **Dashboard View**: Get a high-level overview of project metrics, phase progress, workstreams, and alerts.
--   **Back to Projects**: Use the `← Back to Projects` button to return to the landing page with your project list.
+-   **Navigation**: Use the top tabs to switch between tools. Note that the `Dashboard`, `Project Tracking`, and `Revision Control` tabs are locked until the planning phases are complete.
+-   **Notification Bell**: The header contains a notification bell. You will receive an alert here when a task you are assigned to becomes unblocked (meaning its prerequisite tasks have been completed).
+-   **AI Quick Actions (in Dashboard View)**: Once planning is complete, you can use powerful AI actions:
+    -   **Analyze Project Risks**: Generates a detailed risk assessment based on the project's current status and planning documents.
+    -   **Generate Project Summary**: Creates a concise, professional status report suitable for stakeholders.
+    -   Generated reports can be viewed, copied, downloaded, or saved directly to the project's `Documents Center`.
 
 ### 4. The HMAP Workflow (Project Phases View)
 
 This is the core of the planning process. Work through each phase sequentially to build a robust project plan.
 
-1.  **Open a Phase**: Click on a phase header to expand it. Phases are locked until the previous phase is marked as complete.
-2.  **Generate Content**: Click the **"Generate Content"** button. The AI will use the project's name, discipline, and content from all previous phases to generate the required document. All generated content uses professional, discipline-specific terminology and, where applicable, uses real-world names for skills and resources rather than inventing them.
-3.  **Edit & Save**: You can manually edit the AI-generated content in the text area and click **"Save"**.
-4.  **Mark as Complete**: Once you are satisfied with the content, click **"Mark as Complete"**. This will finalize the phase and unlock the next one.
-5.  **AI Plan Generation (Phase 7)**: In the "Develop Detailed Plans & Timeline" phase, the AI reads your Statement of Work (SOW) from previous phases and automatically generates a complete project plan. This includes a Work Breakdown Structure (WBS), a detailed task list with dates and dependencies, and key project milestones. This output directly populates the **Project Tracking** view.
+1.  **Open a Phase**: Click on a phase header to expand it. Phases are locked until the document immediately preceding it is marked as "Approved".
+2.  **Generate Content**: For Phase 1, provide your high-level project goals. For subsequent phases, the AI will use the content from all previously approved documents as context to generate the next one.
+3.  **Edit & Approve**: Manually edit the AI-generated content, attach supporting files, and click **"Mark as Complete"** (which sets the status to "Approved"). This unlocks the next phase.
+4.  **Automated Plan Generation (Phase 7)**: In the "Develop Detailed Plans & Timeline" phase, the AI reads your approved Statement of Work (SOW) and other documents to automatically generate a complete project plan. This includes a Work Breakdown Structure (WBS), a detailed task list, and key milestones, which populate the `Project Tracking` view.
 
 ### 5. Project Tracking View
 
-Once tasks are generated, use this tool to manage execution.
+Once the plan is generated, use this view to manage execution.
 
--   **Timeline (Gantt Chart)**: A visual representation of your project schedule. Task bars are color-coded by status.
--   **Task List**: View all tasks in a table format. This is where you can **define dependencies**. For each task, use the multi-select dropdown to choose which other tasks must be completed first.
--   **Dependency Visualization**: In the Gantt chart, dependencies are shown as lines connecting tasks. If a task's prerequisite is not complete, its bar will be visually marked as **"blocked"** (red stripes), preventing out-of-sequence work.
--   **Kanban Board**: A classic Kanban view to track tasks across statuses: To Do, In Progress, In Review, and Done.
--   **Milestones**: A view of your key project milestones, their due dates, and their health status.
+-   **Task List & Timeline (Gantt)**: View tasks in a list or on a Gantt chart. Dependencies are visualized as arrows. Blocked tasks (whose prerequisites are not complete) are marked with red stripes.
+-   **Task Detail Modal**: Click on any task to open a detailed view where you can:
+    -   Edit the task's description.
+    -   Set a **recurrence schedule** (daily, weekly, monthly).
+    -   **Attach files**.
+    -   **Post comments** and use `@` to mention team members.
+-   **Kanban Board**: A classic Kanban view to drag and drop tasks between statuses.
+-   **Workload**: A heat map showing the total number of workdays assigned to each team member per week. Use this to identify and resolve resource overallocation.
+-   **Team**: Assign your team members (by name and email) to the roles that were automatically extracted from the "Resources & Skills List" document. The project owner can also transfer ownership to another team member from this screen.
+-   **Milestones & Resources**: Track progress against key dates and manage non-labor costs.
 
 ### 6. Documents Center
 
-Manage the status of the formal documents generated during the HMAP phases.
-
--   Use the dropdown in the "Status" column to change a document's state from `Working` to `Approved` or `Rejected`.
--   **Important**: Certain project phases cannot begin until their required documents are marked as **"Approved"**.
+-   Manage the status (`Working`, `Approved`, `Rejected`) of all formal project documents.
+-   **Download All**: Package all your project documents into a single `.zip` file.
+-   **Advanced Prompts**:
+    -   **Create Project Prompt**: Generates a single, massive prompt containing the application's logic and your project's specific state. This can be used in an external AI tool to regenerate the application's source code.
+    -   **Create Simulation Prompt**: Generates a prompt to run a detailed project simulation in an external AI tool, forecasting potential risks and outcomes.
 
 ### 7. Revision & Change Control
 
-Model the impact of potential changes before they are approved.
+Model the impact of potential changes *before* they are approved.
 
-1.  Fill out the **Change Request** form with a title, reason, and estimated impact (e.g., `+10d +5000c` for 10 days and $5,000 cost).
-2.  The **Auto Impact Analysis** table will immediately show you the new projected budget and end date.
-3.  Add **What-If Scenarios** to compare alternative approaches to the change. The table will update to show the impact of each scenario side-by-side.
+-   Fill out the **Change Request** form and add **What-If Scenarios**.
+-   The **Auto Impact Analysis** table will immediately show the projected budget and end date for the baseline, the change request, and each scenario, allowing for a clear, side-by-side comparison.
+-   Generate an AI deployment plan and apply changes systematically.
 
 ---
 

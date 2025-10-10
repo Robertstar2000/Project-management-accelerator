@@ -12,10 +12,8 @@ export const parseMarkdown = (markdownText: string): React.ReactNode[] => {
     const flushList = () => {
         if (listItems.length > 0) {
             if (listType === 'ul') {
-                // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
                 elements.push(React.createElement('ul', { key: `list-${elements.length}` }, listItems));
             } else if (listType === 'ol') {
-                // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
                 elements.push(React.createElement('ol', { key: `list-${elements.length}` }, listItems));
             }
             listItems = [];
@@ -41,37 +39,30 @@ export const parseMarkdown = (markdownText: string): React.ReactNode[] => {
         const key = `md-${index}`;
         if (line.startsWith('### ')) {
             flushList();
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             elements.push(React.createElement('h3', { key, dangerouslySetInnerHTML: parseLineToHtml(line.substring(4)) }));
         } else if (line.startsWith('## ')) {
             flushList();
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             elements.push(React.createElement('h2', { key, dangerouslySetInnerHTML: parseLineToHtml(line.substring(3)) }));
         } else if (line.startsWith('# ')) {
             flushList();
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             elements.push(React.createElement('h1', { key, dangerouslySetInnerHTML: parseLineToHtml(line.substring(2)) }));
         } else if (line.startsWith('- ') || line.startsWith('* ')) {
             if (listType !== 'ul') {
                 flushList();
                 listType = 'ul';
             }
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             listItems.push(React.createElement('li', { key, dangerouslySetInnerHTML: parseLineToHtml(line.substring(2)) }));
         } else if (line.match(/^\d+\.\s/)) {
             if (listType !== 'ol') {
                 flushList();
                 listType = 'ol';
             }
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             listItems.push(React.createElement('li', { key, dangerouslySetInnerHTML: parseLineToHtml(line.replace(/^\d+\.\s/, '')) }));
         } else if (line.trim() === '---') {
             flushList();
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             elements.push(React.createElement('hr', { key }));
         } else if (line.trim() !== '') {
             flushList();
-            // FIX: Replaced JSX with React.createElement to be valid in a .ts file.
             elements.push(React.createElement('p', { key, dangerouslySetInnerHTML: parseLineToHtml(line) }));
         }
     });
