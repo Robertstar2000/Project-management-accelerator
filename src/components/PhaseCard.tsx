@@ -135,12 +135,12 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                     )}
                     
                     <div className="phase-actions">
-                        <button className="button" onClick={() => onGenerate(phase.id, editedContent)} disabled={isLoading || status === 'completed'}>
+                        <button className="button" onClick={() => onGenerate(phase.id, editedContent)} onMouseDown={(e) => e.preventDefault()} disabled={isLoading || status === 'completed'}>
                             {getButtonText()}
                         </button>
                         {phase.originalPhaseId === 'phase1' && (
                             <>
-                                <button className="button" onClick={() => descriptionFileInputRef.current?.click()} disabled={isLoading || status === 'completed'}>
+                                <button className="button" onClick={() => descriptionFileInputRef.current?.click()} onMouseDown={(e) => e.preventDefault()} disabled={isLoading || status === 'completed'}>
                                     Upload Description (.txt)
                                 </button>
                                 <input
@@ -156,8 +156,8 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                         {!isLoading && (
                             <>
                                 {phaseData && !isEditing && <button className="button" onClick={() => setIsEditing(true)}>Edit</button>}
-                                {isEditing && <button className="button button-primary" onClick={handleSave}>Save Changes</button>}
-                                {phaseData && <button className="button" onClick={() => onComplete(phase.id)} disabled={status === 'completed'}>Mark as Complete</button>}
+                                {isEditing && <button className="button button-primary" onClick={handleSave} onMouseDown={(e) => e.preventDefault()}>Save Changes</button>}
+                                {phaseData && <button className="button" onClick={() => onComplete(phase.id)} onMouseDown={(e) => e.preventDefault()} disabled={status === 'completed'}>Mark as Complete</button>}
                             </>
                         )}
                     </div>
