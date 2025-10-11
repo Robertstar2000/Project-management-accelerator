@@ -296,9 +296,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 finalContext = "CRITICAL: The required preceding documents have not been approved or their compacted context is unavailable. Generate this document based on its title and project parameters alone.";
             }
 
-            const prompt = getPromptTextWithContext(finalContext.trim());
-            // The context has already been truncated to fit within payload limits.
-            // The final prompt truncation was removed to prevent cutting off instructions.
+            const promptWithContext = getPromptTextWithContext(finalContext.trim());
+            const prompt = truncatePrompt(promptWithContext);
             
             const result: GenerateContentResponse = await withRetry(() => ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }));
             const newContent = result.text;
@@ -318,7 +317,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 contentForCompaction = newContent.substring(0, availableCharsForContent);
             }
             
-            const compactPrompt = PROMPTS.compactContent(contentForCompaction);
+            const compactPromptWithContent = PROMPTS.compactContent(contentForCompaction);
+            const compactPrompt = truncatePrompt(compactPromptWithContent);
             const compactResult: GenerateContentResponse = await withRetry(() => ai.models.generateContent({ model: 'gemini-2.5-flash', contents: compactPrompt }));
             const newCompactedContent = compactResult.text;
 
