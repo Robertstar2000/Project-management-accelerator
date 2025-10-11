@@ -145,6 +145,17 @@ export const ProjectPhasesView = ({ project, projectPhases, phasesData, document
                     </div>
                 );
             })}
+
+            {projectPhases.length > 0 && (
+                <div style={{ textAlign: 'center', marginTop: '3rem', paddingBottom: '2rem' }}>
+                    <button 
+                        className="button" 
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    >
+                        ↑ Back to Top
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

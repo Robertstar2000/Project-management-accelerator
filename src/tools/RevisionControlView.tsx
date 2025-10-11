@@ -1,6 +1,8 @@
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
+import { Type } from "@google/genai";
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';
 import { ChangeDeploymentModal } from '../components/ChangeDeploymentModal';
@@ -43,6 +45,7 @@ export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
     const [deploymentPlan, setDeploymentPlan] = useState('');
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
     const [isDeploying, setIsDeploying] = useState(false);
+    const [isEstimating, setIsEstimating] = useState(false);
     const [error, setError] = useState('');
 
     const handleCrChange = (newCrData) => {
@@ -64,6 +67,37 @@ export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
         }
     };
     
+    const handleEstimateImpact = async () => {
+        if (!cr.title || !cr.reason) {
+            alert("Please provide a title and reason for the change request before estimating impact.");
+            return;
+        }
+        setIsEstimating(true);
+        setError('');
+        try {
+            const prompt = PROMPTS.estimateChangeImpact(name, discipline, budget, cr);
+            const schema = {
+                type: Type.OBJECT,
+                properties: {
+                    days: { type: Type.NUMBER, description: 'Estimated schedule impact in days (positive for delay, negative for acceleration).' },
+                    cost: { type: Type.NUMBER, description: 'Estimated budget impact in currency (positive for cost increase, negative for savings).' }
+                },
+                required: ['days', 'cost']
+            };
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: schema },
+            });
+            const impact = JSON.parse(response.text);
+            const newImpactStr = `${impact.days >= 0 ? '+' : ''}${impact.days}d ${impact.cost >= 0 ? '+' : ''}${impact.cost}c`;
+            handleCrChange({ ...cr, impactStr: newImpactStr });
+        } catch (err) {
+            console.error("API Error estimating impact:", err);
+            setError("Failed to estimate impact. Please check the console and try again.");
+        } finally {
+            setIsEstimating(false);
+        }
+    };
+
     const handleGeneratePlan = async () => {
         if (!cr.title || !cr.reason) {
             alert("Please provide a title and reason for the change request before generating a plan.");
@@ -166,7 +200,15 @@ ${cr.reason}
                     <form>
                         <div className="form-group"><label>Title</label><input type="text" value={cr.title} onChange={e => handleCrChange({...cr, title: e.target.value})} /></div>
                         <div className="form-group"><label>Reason for Change</label><textarea rows={3} value={cr.reason} onChange={e => handleCrChange({...cr, reason: e.target.value})}></textarea></div>
-                        <div className="form-group"><label>Impact (e.g. +15d +5000c)</label><input type="text" value={cr.impactStr} onChange={e => handleCrChange({...cr, impactStr: e.target.value})} /></div>
+                        <div className="form-group">
+                            <label>Impact (e.g. +15d +5000c)</label>
+                            <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+                                <input type="text" value={cr.impactStr} onChange={e => handleCrChange({...cr, impactStr: e.target.value})} style={{flexGrow: 1}}/>
+                                <button type="button" className="button button-small" onClick={handleEstimateImpact} disabled={isEstimating}>
+                                    {isEstimating ? '...' : 'Estimate'}
+                                </button>
+                            </div>
+                        </div>
                     </form>
                     
                     <h4 style={{marginTop: '2rem'}}>What-If Scenarios</h4>

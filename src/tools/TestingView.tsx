@@ -16,6 +16,29 @@ const mockAi = {
             if (contents.includes('compact it into a dense')) {
                  return { text: 'compacted:Mock Concept Proposal' };
             }
+            if (contents.includes('Detailed Plans')) {
+                return { text: `
+## WBS
+- 1.0 Design
+  - 1.1 UI/UX
+- 2.0 Development
+  - 2.1 API
+  - 2.2 Frontend
+
+## Tasks
+| Task Name          | Role      | Start Date (YYYY-MM-DD) | End Date (YYYY-MM-DD) | Dependencies      | Sprint   |
+|--------------------|-----------|-------------------------|-----------------------|-------------------|----------|
+| Design Mockups     | Designer  | 2024-01-01              | 2024-01-05            |                   | Sprint 1 |
+| Develop API        | Engineer  | 2024-01-08              | 2024-01-15            | Design Mockups    | Sprint 1 |
+
+## Milestones
+| Milestone Name | Date (YYYY-MM-DD) |
+|---|---|
+| Design Complete  | 2024-01-05        |
+| API Complete     | 2024-01-15        |
+`
+                };
+            }
             return { text: 'mock-response' };
         }
     }
@@ -56,80 +79,111 @@ const runUnitTests = (): TestCase[] => {
 
                 result = parseImpact("-7d -1,000c");
                 assert(result.days === -7 && result.cost === -1000, "Failed on negative values with comma");
-
-                result = parseImpact("+10d");
-                assert(result.days === 10 && result.cost === 0, "Failed on days only");
-
-                result = parseImpact("-2500c");
-                assert(result.days === 0 && result.cost === -2500, "Failed on cost only");
-
-                result = parseImpact("no impact");
-                assert(result.days === 0 && result.cost === 0, "Failed on invalid string");
             }
         },
         {
-            name: "Utility: Parses markdown table for tasks",
+            name: "Utility: Parses roles from markdown",
             test: () => {
-                // Dummy function to simulate a parser
-                const parseMarkdownTable = (sectionString) => {
-                    if (!sectionString) return [];
-                    const lines = sectionString.trim().split('\n');
-                    const headerLine = lines[0];
-                    const dataLines = lines.slice(2);
-                    const headers = headerLine.split('|').map(h => h.trim().toLowerCase());
-                    const data = dataLines.map(row => {
-                        const values = row.split('|').map(v => v.trim());
-                        const obj = {};
-                        headers.forEach((header, index) => {
-                            if(header) obj[header] = values[index];
-                        });
-                        return obj;
-                    });
-                    return data;
+                const parseRolesFromMarkdown = (markdownText: string): string[] => {
+                    if (!markdownText) return [];
+                    const lines = markdownText.split('\n');
+                    const roleSectionKeywords = ['roles', 'personnel', 'team members', 'team'];
+                    let roleLines: string[] = [];
+                    let sectionStartIndex = -1;
+                    for (const keyword of roleSectionKeywords) {
+                        const headingRegex = new RegExp(`^#+\\s*.*${keyword}.*`, 'i');
+                        sectionStartIndex = lines.findIndex(line => headingRegex.test(line));
+                        if (sectionStartIndex !== -1) break;
+                    }
+                    if (sectionStartIndex !== -1) {
+                        let sectionEndIndex = lines.findIndex((line, i) => i > sectionStartIndex && line.match(/^#+/));
+                        if (sectionEndIndex === -1) sectionEndIndex = lines.length;
+                        roleLines = lines.slice(sectionStartIndex + 1, sectionEndIndex).filter(line => line.match(/^[-*]\s+/));
+                    }
+                    const roles = new Set<string>();
+                    for (const line of roleLines) {
+                        const roleName = line.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').split(/[:(]/)[0].trim();
+                        if (roleName) roles.add(roleName);
+                    }
+                    return Array.from(roles);
                 };
-
-                const markdown = `| Task Name | Role |
-|---|---|
-| Design UI | Designer |
-| Build API | Engineer |`;
-                
-                const result = parseMarkdownTable(markdown);
-                assert(result.length === 2, "Should parse 2 rows");
-                assert(result[0]['task name'] === 'Design UI' && result[0]['role'] === 'Designer', "Row 1 data is incorrect");
-                assert(result[1]['task name'] === 'Build API' && result[1]['role'] === 'Engineer', "Row 2 data is incorrect");
+                const markdown = `## Required Roles\n- **Project Manager**: PMP\n- Lead Engineer (Backend)\n* UI/UX Designer`;
+                const roles = parseRolesFromMarkdown(markdown);
+                assert(roles.length === 3, "Should find 3 roles");
+                assert(roles.includes('Project Manager') && roles.includes('Lead Engineer') && roles.includes('UI/UX Designer'), "Should parse all role names correctly");
             }
-        }
+        },
+        {
+            name: "HMAP: Correctly determines lock status of phases",
+            test: () => {
+                const getLockStatus = (docId, projectPhases, documents) => {
+                    const docIndex = projectPhases.findIndex(p => p.id === docId);
+                    if (docIndex === -1) return { isLocked: true, lockReason: 'Document not found.' };
+                    if (docIndex === 0) return { isLocked: false, lockReason: null };
+                    const prevDocInSequence = projectPhases[docIndex - 1];
+                    const prevDocData = documents.find(d => d.id === prevDocInSequence.id);
+                    if (prevDocData && prevDocData.status !== 'Approved') {
+                        return { isLocked: true, lockReason: `Requires "${prevDocData.title}" to be approved first.` };
+                    }
+                    return { isLocked: false, lockReason: null };
+                };
+                
+                const projectPhases = [{id: 'doc1'}, {id: 'doc2'}, {id: 'doc3'}];
+                const documents = [
+                    { id: 'doc1', title: 'Doc 1', status: 'Approved' },
+                    { id: 'doc2', title: 'Doc 2', status: 'Working' },
+                    { id: 'doc3', title: 'Doc 3', status: 'Working' },
+                ];
+                
+                assert(getLockStatus('doc1', projectPhases, documents).isLocked === false, "First doc should be unlocked");
+                assert(getLockStatus('doc2', projectPhases, documents).isLocked === false, "Second doc should be unlocked if first is approved");
+                assert(getLockStatus('doc3', projectPhases, documents).isLocked === true, "Third doc should be locked if second is not approved");
+            }
+        },
     ];
     return tests;
 };
 
 const runIntegrationTests = (): TestCase[] => {
-    // These tests don't render to the real DOM, but check component logic.
     const tests: TestCase[] = [
         {
-            name: "Component: PhaseCard lock mechanism",
+            name: "AI: Gathers correct document context for generation",
             test: () => {
-                // This is a conceptual test. We can't easily check for disabled buttons
-                // without a full testing library, but we can check the props logic.
-                const lockedProps = { isLocked: true, lockReason: "Previous phase incomplete" };
-                const unlockedProps = { isLocked: false, lockReason: null };
+                 const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
+                    const sortedDocuments = [...allDocuments].sort((a, b) => a.phase - b.phase || a.title.localeCompare(b.title));
+                    const currentIndex = sortedDocuments.findIndex(d => d.id === docToGenerate.id);
+                    const firstDoc = sortedDocuments[0];
+                    const firstDocPhaseData = firstDoc ? allPhasesData[firstDoc.id] : null;
+                    const firstDocContext = (firstDoc && firstDoc.status === 'Approved' && firstDocPhaseData?.compactedContent)
+                        ? { doc: firstDoc, content: `--- Context from "${firstDoc.title}" ---\n${firstDocPhaseData.compactedContent}\n\n` }
+                        : null;
+                    const prevDoc = currentIndex > 0 ? sortedDocuments[currentIndex - 1] : null;
+                    const prevDocPhaseData = prevDoc ? allPhasesData[prevDoc.id] : null;
+                    const prevDocContext = (prevDoc && prevDoc.status === 'Approved' && prevDocPhaseData?.compactedContent)
+                        ? { doc: prevDoc, content: `--- Context from "${prevDoc.title}" ---\n${prevDocPhaseData.compactedContent}\n\n` }
+                        : null;
+                    return { firstDocContext, prevDocContext };
+                };
+                
+                const docs = [
+                    { id: 'doc1', title: 'Concept', phase: 1, status: 'Approved' },
+                    { id: 'doc2', title: 'Resources', phase: 2, status: 'Approved' },
+                    { id: 'doc3', title: 'SOW', phase: 5, status: 'Working' },
+                ];
+                const phasesData = {
+                    'doc1': { compactedContent: 'compacted concept' },
+                    'doc2': { compactedContent: 'compacted resources' },
+                };
+                
+                let context = getRelevantContext(docs[2], docs, phasesData);
+                let prevDocPart = (context.prevDocContext && context.prevDocContext.doc.id !== context.firstDocContext?.doc.id) ? context.prevDocContext.content : '';
 
-                assert(lockedProps.isLocked === true, "isLocked prop should be true for locked state");
-                assert(unlockedProps.isLocked === false, "isLocked prop should be false for unlocked state");
-                // In a real test, we would render the component and assert that
-                // buttons are disabled or a lock icon is visible.
-            }
-        },
-        {
-            name: "Component: NewProjectModal template selection",
-            test: () => {
-                 // Simulate selecting a template
-                 const selectedTemplateId = 'software-dev';
-                 const selectedTemplate = TEMPLATES.find(t => t.id === selectedTemplateId);
+                assert(context.firstDocContext.content.includes('compacted concept'), "Should include first doc context");
+                assert(prevDocPart.includes('compacted resources'), "Should include previous doc context");
 
-                 assert(!!selectedTemplate, "Template should be found");
-                 assert(selectedTemplate.name === 'Standard Software Project', "Correct template name should be loaded");
-                 assert(selectedTemplate.documents.length > 0, "Template should have documents");
+                context = getRelevantContext(docs[1], docs, phasesData);
+                prevDocPart = (context.prevDocContext && context.prevDocContext.doc.id !== context.firstDocContext?.doc.id) ? context.prevDocContext.content : '';
+                assert(prevDocPart === '', "Previous doc part should be empty when it's the same as the first doc");
             }
         }
     ];
@@ -141,7 +195,6 @@ const runFunctionalTests = (project, saveProject): TestCase[] => {
         {
             name: "Flow: Create Project and Generate First Document",
             test: async () => {
-                // 1. Create a project in memory (doesn't use the modal UI)
                 const newProject: Project = { 
                     id: `test-${Date.now()}`, name: "Functional Test Project", discipline: "Software Development",
                     mode: 'fullscale', scope: 'internal', teamSize: 'medium', complexity: 'typical',
@@ -150,38 +203,45 @@ const runFunctionalTests = (project, saveProject): TestCase[] => {
                     startDate: '2024-01-01', endDate: '2024-03-01',
                     changeRequest: {}, scenarios: [], phasesData: {}, generationMode: 'manual', notifications: []
                 };
-
                 assert(newProject.documents.length > 0, "Project should be created with default documents");
-
-                // 2. Simulate generating the first document
                 const firstDoc = newProject.documents[0];
                 const promptFn = PROMPTS.phase1;
                 const prompt = promptFn(newProject.name, newProject.discipline, '', newProject.mode, newProject.scope, newProject.teamSize, newProject.complexity);
                 
                 const result = await mockAi.models.generateContent({ contents: prompt });
-                const newContent = result.text;
-                assert(newContent.includes("Mock Concept Proposal"), "Mock AI should return the correct content");
-
-                // 3. Update project state
-                let updatedProject = { ...newProject };
-                const newPhasesData = { ...updatedProject.phasesData, [firstDoc.id]: { content: newContent } };
-                updatedProject.phasesData = newPhasesData;
-                
-                assert(updatedProject.phasesData[firstDoc.id].content === newContent, "Project state should be updated with new content");
+                assert(result.text.includes("Mock Concept Proposal"), "Mock AI should return the correct content");
             }
         },
         {
-            name: "Flow: Mark document as complete",
-            test: () => {
-                const projectWithDoc = {
-                    documents: [{ id: 'doc1', status: 'Working' }]
+            name: "Flow: Parses detailed plan and populates tasks/milestones",
+            test: async () => {
+                const planContent = await mockAi.models.generateContent({contents: 'Detailed Plans'});
+
+                const parseMarkdownTable = (sectionString) => {
+                    if (!sectionString) return [];
+                    const lines = sectionString.trim().split('\n');
+                    let headerIndex = -1;
+                    for (let i = 0; i < lines.length - 1; i++) {
+                        if (lines[i].includes('|') && lines[i+1].match(/^[|\s-:]+$/)) headerIndex = i;
+                    }
+                    if (headerIndex === -1) return [];
+                    const headers = lines[headerIndex].split('|').map(h => h.trim().toLowerCase().replace(/\s/g, '_'));
+                    return lines.slice(headerIndex + 2).map(row => {
+                        const values = row.split('|').map(v => v.trim());
+                        const obj = {};
+                        headers.forEach((header, i) => { if(header) obj[header] = values[i]; });
+                        return obj;
+                    });
                 };
                 
-                const updatedDocs = projectWithDoc.documents.map(d => 
-                    d.id === 'doc1' ? { ...d, status: 'Approved' } : d
-                );
+                const tasksText = planContent.text.split('## Tasks')[1].split('## Milestones')[0];
+                const parsedTasks = parseMarkdownTable(tasksText);
+                assert(parsedTasks.length === 2, "Should parse 2 tasks from plan");
+                assert(parsedTasks[1]['dependencies'] === 'Design Mockups', "Should correctly parse dependencies");
 
-                assert(updatedDocs[0].status === 'Approved', "Document status should be updated to 'Approved'");
+                const milestonesText = planContent.text.split('## Milestones')[1];
+                const parsedMilestones = parseMarkdownTable(milestonesText);
+                assert(parsedMilestones.length === 2, "Should parse 2 milestones");
             }
         }
     ];

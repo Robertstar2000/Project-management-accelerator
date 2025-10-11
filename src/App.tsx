@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
@@ -14,7 +13,8 @@ import { logAction } from './utils/logging';
 import { AuthView } from './views/AuthView';
 import * as authService from './utils/authService';
 import { subscribeToUpdates, notifyUpdate } from './utils/syncService';
-import { Project, Task } from './types';
+// FIX: Import Notification type to satisfy HeaderProps.
+import { Project, Task, Notification } from './types';
 
 const App = () => {
   const [ai, setAi] = useState<GoogleGenAI | null>(null);
@@ -151,9 +151,9 @@ const App = () => {
     const projectDocuments = JSON.parse(JSON.stringify(template.documents || DEFAULT_DOCUMENTS));
     
     const mandatoryDocs = [
-        { title: 'Statement of Work (SOW)', phase: 5 },
-        { title: 'Resources & Skills List', phase: 2 },
-        { title: 'Detailed Plans (WBS/WRS)', phase: 7 }
+        { title: 'Statement of Work (SOW)', phase: 5, sequence: 1 },
+        { title: 'Resources & Skills List', phase: 2, sequence: 1 },
+        { title: 'Detailed Plans (WBS/WRS)', phase: 7, sequence: 1 }
     ];
 
     mandatoryDocs.forEach(mandatoryDoc => {
@@ -164,6 +164,7 @@ const App = () => {
             projectDocuments.push({
                 id: `doc-mandatory-${Date.now()}-${mandatoryDoc.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
                 title: mandatoryDoc.title, version: 'v1.0', status: 'Working', owner: 'A. User', phase: mandatoryDoc.phase,
+                sequence: mandatoryDoc.sequence,
             });
         }
     });
@@ -172,14 +173,14 @@ const App = () => {
         const hasRFP = projectDocuments.some(doc => doc.title.toLowerCase().includes('request for proposal') || doc.title.toLowerCase().includes('rfp'));
         if (!hasRFP) {
             projectDocuments.push({
-                id: `doc-subco-${Date.now()}-rfp`, title: 'Request for Proposal (RFP)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 2,
+                id: `doc-subco-${Date.now()}-rfp`, title: 'Request for Proposal (RFP)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 2, sequence: 50,
             });
         }
         
         const hasContract = projectDocuments.some(doc => doc.title.toLowerCase().includes('contract') || doc.title.toLowerCase().includes('agreement'));
         if (!hasContract) {
              projectDocuments.push({
-                id: `doc-subco-${Date.now()}-contract`, title: "Draft Contract with T's & C's", version: 'v1.0', status: 'Working', owner: 'A. User', phase: 5,
+                id: `doc-subco-${Date.now()}-contract`, title: "Draft Contract with T's & C's", version: 'v1.0', status: 'Working', owner: 'A. User', phase: 5, sequence: 50,
             });
         }
     }
@@ -279,6 +280,36 @@ const App = () => {
       setIsHelpModalOpen(isOpen);
   };
 
+  // FIX: Add notification handlers to pass to Header component.
+  const handleNotificationClick = (notification: Notification) => {
+    if (!selectedProject) return;
+
+    logAction('Click Notification', notification.text, { notificationId: notification.id });
+    
+    const updatedNotifications = selectedProject.notifications.map(n => 
+        n.id === notification.id ? { ...n, read: true } : n
+    );
+    
+    const updatedProject = { ...selectedProject, notifications: updatedNotifications };
+    handleSaveProject(updatedProject); 
+
+    const task = selectedProject.tasks.find(t => t.id === notification.taskId);
+    if (task) {
+        sessionStorage.setItem('hmap-open-task-on-load', notification.taskId);
+        setAppKey(prev => prev + 1);
+    }
+  };
+
+  const handleMarkAllRead = () => {
+    if (!selectedProject) return;
+    
+    logAction('Mark All Notifications Read', 'User Action', { projectId: selectedProject.id });
+    
+    const updatedNotifications = selectedProject.notifications.map(n => ({ ...n, read: true }));
+    const updatedProject = { ...selectedProject, notifications: updatedNotifications };
+    handleSaveProject(updatedProject);
+  };
+
   const handleLogout = () => {
     authService.logout();
     setCurrentUser(null);
@@ -298,6 +329,7 @@ const App = () => {
   return (
     <>
         <style>{GlobalStyles}</style>
+        {/* FIX: Add missing notification-related props to Header. */}
         <Header 
             onNewProject={handleNewProjectRequest} 
             onHomeClick={() => handleSelectProject(null)}
@@ -305,6 +337,9 @@ const App = () => {
             isLandingPage={!selectedProject}
             currentUser={currentUser}
             onLogout={handleLogout}
+            notifications={selectedProject?.notifications || []}
+            onNotificationClick={handleNotificationClick}
+            onMarkAllRead={handleMarkAllRead}
         />
         <main>
             {selectedProject ? (

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { TeamAssignmentsView } from './TeamView';
 import { Project, Task, User, Milestone, Sprint } from '../types';
@@ -11,18 +13,39 @@ const parseResourcesFromMarkdown = (markdownText: string): string[] => {
     let resourceLines: string[] = [];
     let inSection = false;
     for (const line of lines) {
-        if (line.match(/^#+/)) {
+        if (line.match(/^##\s/)) { // A heading marks a new section
             inSection = resourceSectionKeywords.some(keyword => line.toLowerCase().includes(keyword));
         }
         if (inSection && line.match(/^[-*]\s+/)) {
             resourceLines.push(line);
         }
     }
-    return resourceLines.map(line => line.replace(/^[-*]\s+/, '').split(':')[0].trim());
+    return resourceLines.map(line => line.replace(/^[-*]\s+/, '').split(/[:(]/)[0].trim()).filter(Boolean);
 };
 
 const ResourcesView = ({ project, onUpdateProject }) => {
     const [resources, setResources] = useState(project.resources || []);
+
+    const extractedResources = useMemo(() => {
+        const resourceDoc = project.documents.find(d => d.title === 'Resources & Skills List');
+        if (!resourceDoc || !project.phasesData || !project.phasesData[resourceDoc.id]) return [];
+        return parseResourcesFromMarkdown(project.phasesData[resourceDoc.id].content);
+    }, [project.documents, project.phasesData]);
+
+    useEffect(() => {
+        const newResources = [...(project.resources || [])];
+        const existingResourceNames = new Set(newResources.map(r => r.name));
+        
+        extractedResources.forEach(name => {
+            if (!existingResourceNames.has(name)) {
+                newResources.push({ name, estimate: 0, actual: 0 });
+            }
+        });
+        // This check prevents an infinite loop by only setting state if there's a change.
+        if (newResources.length !== (project.resources || []).length) {
+            setResources(newResources);
+        }
+    }, [extractedResources, project.resources]);
 
     const handleUpdate = (index, field, value) => {
         const newResources = [...resources];
@@ -36,7 +59,7 @@ const ResourcesView = ({ project, onUpdateProject }) => {
 
     return (
         <div>
-            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>Track estimated vs. actual costs for non-labor resources.</p>
+            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>Track estimated vs. actual costs for non-labor resources. The list is auto-populated from the 'Resources & Skills List' document.</p>
             <table className="task-list-table">
                 <thead><tr><th>Resource Name</th><th>Estimated Cost</th><th>Actual Cost</th></tr></thead>
                 <tbody>
@@ -47,6 +70,13 @@ const ResourcesView = ({ project, onUpdateProject }) => {
                             <td><input type="number" value={resource.actual || ''} onChange={(e) => handleUpdate(index, 'actual', parseFloat(e.target.value))} /></td>
                         </tr>
                     ))}
+                     {resources.length === 0 && (
+                        <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', color: 'var(--secondary-text)' }}>
+                                Resources will be listed here after the 'Resources & Skills List' document is generated.
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
             <button onClick={handleSave} className="button" style={{marginTop: '1rem'}}>Save Resource Costs</button>
@@ -176,7 +206,14 @@ const GanttChart: React.FC<GanttChartProps> = ({ tasks, sprints, projectStartDat
                          return (
                              <div
                                  key={task.id}
-                                 ref={el => taskBarRefs.current.set(task.id, el)}
+                                 // FIX: Use a callback ref that handles element mounting and unmounting to avoid returning a value from the ref function, which is not allowed.
+                                 ref={el => {
+                                     if (el) {
+                                         taskBarRefs.current.set(task.id, el);
+                                     } else {
+                                         taskBarRefs.current.delete(task.id);
+                                     }
+                                 }}
                                  className={`gantt-task-bar task-bar-${task.status} ${isOverdue ? 'overdue' : ''} ${isBlocked ? 'blocked' : ''} ${task.isSubcontracted ? 'subcontracted' : ''}`}
                                  style={{
                                      gridRow: task.rowIndex + 2,

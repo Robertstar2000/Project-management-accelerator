@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Project, Task, TeamMember } from '../types';
 
@@ -99,7 +100,7 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
             <table className="task-list-table workload-table">
                 <thead>
                     <tr>
-                        <th style={{ minWidth: '150px', position: 'sticky', left: 0, background: 'var(--card-background)', zIndex: 1 }}>Team Member</th>
+                        <th style={{ minWidth: '250px', position: 'sticky', left: 0, background: 'var(--card-background)', zIndex: 1 }}>Role (Team Member)</th>
                         {projectWeeks.map(week => (
                             <th key={week.toISOString()} style={{ minWidth: '120px', textAlign: 'center' }}>
                                 Week of {week.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -110,7 +111,9 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
                 <tbody>
                     {workloadData.map(({ member, weeklyWorkload }) => (
                         <tr key={member.userId} style={{cursor: 'initial'}}>
-                            <td style={{ position: 'sticky', left: 0, background: 'var(--card-background)', zIndex: 1, fontWeight: 'bold' }}>{member.name}</td>
+                            <td style={{ position: 'sticky', left: 0, background: 'var(--card-background)', zIndex: 1, fontWeight: 'bold' }}>
+                                <strong>{member.role}</strong> ({member.name})
+                            </td>
                             {weeklyWorkload.map((weekData, index) => {
                                 const title = weekData.tasks.length > 0
                                     ? weekData.tasks.map(t => `- ${t.name} (${new Date(t.startDate).toLocaleDateString()} - ${new Date(t.endDate).toLocaleDateString()})`).join('\n')

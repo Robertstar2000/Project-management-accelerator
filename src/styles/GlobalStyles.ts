@@ -985,11 +985,11 @@ export const GlobalStyles = `
       border-radius: 4px;
       color: var(--primary-text);
       font-size: 0.8rem;
-      overflow: hidden;
       white-space: nowrap;
-      text-overflow: ellipsis;
       cursor: pointer;
       position: relative;
+      z-index: 2; /* To ensure text renders above grid lines */
+      overflow: visible; /* Allow text to overflow */
   }
   .gantt-task-bar.subcontracted::after {
       content: '';
@@ -1005,6 +1005,7 @@ export const GlobalStyles = `
           transparent 5px,
           transparent 10px
       );
+      z-index: -1;
   }
   .gantt-task-bar.task-bar-todo { background-color: var(--task-todo-color); }
   .gantt-task-bar.task-bar-inprogress { background-color: var(--task-inprogress-color); }

@@ -81,8 +81,9 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
                 type: Type.OBJECT, properties: { documents: {
                         type: Type.ARRAY, description: "A list of project documents.", items: { type: Type.OBJECT, properties: {
                                 title: { type: Type.STRING, description: "The name of the document." },
-                                phase: { type: Type.NUMBER, description: "The HMAP phase number (1-9) the document belongs to." }
-                            }, required: ['title', 'phase']
+                                phase: { type: Type.NUMBER, description: "The HMAP phase number (1-9) the document belongs to." },
+                                sequence: { type: Type.NUMBER, description: "The logical order for generation within a phase, starting from 1." }
+                            }, required: ['title', 'phase', 'sequence']
                         }
                     }
                 }, required: ['documents']
@@ -92,7 +93,7 @@ export const NewProjectModal = ({ isOpen, onClose, onCreateProject, projects, on
             });
             const rawDocs = JSON.parse(response.text).documents;
             const generatedDocs = rawDocs.map((doc, i) => ({
-                id: `doc-custom-${i}-${Date.now()}`, title: doc.title, version: 'v1.0', status: 'Working', owner: 'A. User', phase: doc.phase,
+                id: `doc-custom-${i}-${Date.now()}`, title: doc.title, version: 'v1.0', status: 'Working', owner: 'A. User', phase: doc.phase, sequence: doc.sequence,
             }));
             template = { id: 'custom', name: 'Custom Project', discipline: customDiscipline.trim(), documents: generatedDocs };
             onCreateProject({ name, template, mode: projectMode, scope: projectScope, teamSize, complexity: projectComplexity });

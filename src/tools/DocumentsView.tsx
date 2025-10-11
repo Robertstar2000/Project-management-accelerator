@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { GoogleGenAI } from "@google/genai";
@@ -31,7 +32,28 @@ export const DocumentsView = ({ project, documents, onUpdateDocument, phasesData
             }
             const readmeLogicMd = await response.text();
 
-            const projectDataString = JSON.stringify(project, null, 2);
+            const firstDoc = project.documents.find(d => d.phase === 1 && d.sequence === 1);
+            const wbsDoc = project.documents.find(d => d.title.toLowerCase().includes('detailed plans'));
+    
+            const firstDocContext = firstDoc && phasesData[firstDoc.id]?.compactedContent 
+                ? phasesData[firstDoc.id].compactedContent
+                : 'Not available. Please generate and approve the Concept Proposal.';
+            const wbsDocContext = wbsDoc && phasesData[wbsDoc.id]?.compactedContent
+                ? phasesData[wbsDoc.id].compactedContent
+                : 'Not available. Please generate and approve the Detailed Plans document.';
+
+            const projectContext = `
+This application should be pre-loaded with the following project context.
+
+--- KEY CONTEXT: CONCEPT PROPOSAL (COMPACTED) ---
+${firstDocContext}
+---
+
+--- KEY CONTEXT: WORK BREAKDOWN STRUCTURE (COMPACTED) ---
+${wbsDocContext}
+---
+`;
+
             const prompt = `
 **Objective:** Generate the complete source code for a single-page web application called "Project Management Accelerator".
 
@@ -56,12 +78,10 @@ Create a standard React file structure including components, views, constants, a
 
 **Implementation Details & Initial State:**
 - Implement all components and logic as described in the outline.
-- The application state should be initialized to display the dashboard for the following specific project. All its data (documents, tasks, phases) should be pre-loaded.
+- The application state should be initialized based on the following specific project context. All its data (documents, tasks, phases) should be derived from this context.
 
-**Initial Project State (JSON):**
-\`\`\`json
-${projectDataString}
-\`\`\`
+**Initial Project Context:**
+${projectContext}
 
 **Final Output:**
 Provide the complete, independent source code for each required file. Do not include explanations, just the raw file content for each path.
@@ -89,15 +109,20 @@ Provide the complete, independent source code for each required file. Do not inc
     const handleCreateSimulationPrompt = async () => {
         setIsGenerating('simulation');
         try {
-            const keyDocuments = ['Concept Proposal', 'Statement of Work (SOW)', 'Resources & Skills List', 'Detailed Plans (WBS/WRS)'];
+            const firstDoc = project.documents.find(d => d.phase === 1 && d.sequence === 1);
+            const wbsDoc = project.documents.find(d => d.title.toLowerCase().includes('detailed plans'));
+    
             let context = '';
+            if (firstDoc && phasesData[firstDoc.id]?.compactedContent) {
+                context += `--- Document: ${firstDoc.title} (Compacted) ---\n${phasesData[firstDoc.id].compactedContent}\n\n`;
+            }
+            if (wbsDoc && phasesData[wbsDoc.id]?.compactedContent) {
+                context += `--- Document: ${wbsDoc.title} (Compacted) ---\n${phasesData[wbsDoc.id].compactedContent}\n\n`;
+            }
 
-            keyDocuments.forEach(title => {
-                const doc = project.documents.find(d => d.title === title);
-                if (doc && phasesData[doc.id]?.content) {
-                    context += `--- Document: ${title} ---\n${phasesData[doc.id].content}\n\n`;
-                }
-            });
+            if (!context) {
+                context = 'Key planning documents (Concept Proposal, WBS) have not been generated or compacted yet.';
+            }
 
             const projectDataSummary = {
                 name: project.name,
@@ -129,7 +154,7 @@ ${JSON.stringify(projectDataSummary, null, 2)}
 
 ---
 
-## Key Planning Documents Context:
+## Key Planning Documents Context (Compacted):
 
 ${context.trim()}
 
@@ -190,11 +215,18 @@ Present your findings in a clear, structured report using Markdown. Use the foll
 
         documents.forEach(doc => {
             const content = phasesData[doc.id]?.content;
+            const compactedContent = phasesData[doc.id]?.compactedContent;
+            
             if (content) {
                 const folderName = `Phase ${doc.phase}`;
-                // Sanitize filename to remove characters that are invalid in filenames
-                const fileName = `${doc.title.replace(/[\\/:"*?<>|]/g, '')}.md`;
+                const sanitizedTitle = doc.title.replace(/[\\/:"*?<>|]/g, '');
+                const fileName = `${sanitizedTitle}.md`;
                 zip.folder(folderName).file(fileName, content);
+                
+                if (compactedContent) {
+                    const compactedFileName = `${sanitizedTitle}.compacted.md`;
+                    zip.folder(folderName).file(compactedFileName, compactedContent);
+                }
             }
         });
 
@@ -202,7 +234,6 @@ Present your findings in a clear, structured report using Markdown. Use the foll
             const zipBlob = await zip.generateAsync({ type: "blob" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(zipBlob);
-            // Sanitize project name for use in filename
             link.download = `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-documents.zip`;
             document.body.appendChild(link);
             link.click();
