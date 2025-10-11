@@ -1,29 +1,11 @@
 
 
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Type } from "@google/genai";
+import { Type, GoogleGenAI } from "@google/genai";
 import { logAction } from '../utils/logging';
 import { PROMPTS } from '../constants/projectData';
 import { ChangeDeploymentModal } from '../components/ChangeDeploymentModal';
-
-const parseImpact = (impactString) => {
-    const daysMatch = impactString.match(/([+-]?\s*\d+)\s*d/);
-    const costMatch = impactString.match(/([+-]?\s*[\d,]+)\s*c/);
-    return {
-        days: daysMatch ? parseInt(daysMatch[1].replace(/\s/g, ''), 10) : 0,
-        cost: costMatch ? parseInt(costMatch[1].replace(/\s|,/g, ''), 10) : 0,
-    };
-};
-
-const applyImpact = (baseline, impact) => {
-    const newEndDate = new Date(baseline.endDate);
-    newEndDate.setDate(newEndDate.getDate() + impact.days);
-    return {
-        endDate: newEndDate.toISOString().split('T')[0],
-        budget: baseline.budget + impact.cost,
-    };
-};
+import { parseImpact, applyImpact } from '../utils/be-logic';
 
 // Safety limits for API payload
 const MAX_PAYLOAD_CHARS = 20000; // Drastically reduced to prevent potential 500 errors from large requests.
@@ -39,7 +21,7 @@ const truncatePrompt = (prompt: string): string => {
     return prompt.substring(0, MAX_PAYLOAD_CHARS) + "\n...[PROMPT TRUNCATED DUE TO PAYLOAD SIZE]...";
 };
 
-export const RevisionControlView = ({ project, onUpdateProject, ai }) => {
+export const RevisionControlView = ({ project, onUpdateProject, ai }: {project: any, onUpdateProject: (update: any) => void, ai: GoogleGenAI}) => {
     const { changeRequest: cr, scenarios, name, discipline, tasks, documents, budget, endDate } = project;
     const [newScenario, setNewScenario] = useState({ name: '', impactStr: '' });
     const [deploymentPlan, setDeploymentPlan] = useState('');
@@ -204,7 +186,7 @@ ${cr.reason}
                             <label>Impact (e.g. +15d +5000c)</label>
                             <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
                                 <input type="text" value={cr.impactStr} onChange={e => handleCrChange({...cr, impactStr: e.target.value})} style={{flexGrow: 1}}/>
-                                <button type="button" className="button button-small" onClick={handleEstimateImpact} disabled={isEstimating}>
+                                <button type="button" className="button button-small" onClick={handleEstimateImpact} disabled={isEstimating || !ai}>
                                     {isEstimating ? '...' : 'Estimate'}
                                 </button>
                             </div>
@@ -266,7 +248,7 @@ ${cr.reason}
                 </div>
                 {error && <p className="status-message error">{error}</p>}
                 <div style={{display: 'flex', gap: '1rem'}}>
-                    <button className="button" onClick={handleGeneratePlan} disabled={isGeneratingPlan}>
+                    <button className="button" onClick={handleGeneratePlan} disabled={isGeneratingPlan || !ai}>
                         {isGeneratingPlan ? 'Generating...' : (deploymentPlan ? 'Regenerate Plan' : 'Generate Deployment Plan')}
                     </button>
                     <button className="button button-primary" onClick={() => setIsDeploying(true)} disabled={!deploymentPlan || isGeneratingPlan}>

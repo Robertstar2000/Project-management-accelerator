@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
@@ -27,11 +28,20 @@ const App = () => {
   const [apiKeyStatus, setApiKeyStatus] = useState('pending');
   const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
   const [appKey, setAppKey] = useState(0); // Used to force re-renders on sync
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
 
   const userProjects = useMemo(() => {
     if (!projects || !currentUser) return [];
     return projects.filter(p => p.ownerId === currentUser.id || p.team?.some(member => member.userId === currentUser.id));
   }, [projects, currentUser]);
+  
+  const recentlyViewedProjects = useMemo(() => {
+    if (!projects || recentlyViewedIds.length === 0) return [];
+    const userProjectIds = new Set(userProjects.map(p => p.id));
+    return recentlyViewedIds
+        .map(id => projects.find(p => p.id === id))
+        .filter((p): p is Project => !!p && userProjectIds.has(p.id));
+  }, [projects, userProjects, recentlyViewedIds]);
 
   const reloadStateFromStorage = () => {
     logAction('Sync Update', 'BroadcastChannel', { message: 'Forcing state reload from localStorage' });
@@ -93,6 +103,10 @@ const App = () => {
       } else {
         localStorage.setItem('hmap-projects', JSON.stringify([]));
       }
+      const storedRecentIds = localStorage.getItem('hmap-recently-viewed');
+      if (storedRecentIds) {
+          setRecentlyViewedIds(JSON.parse(storedRecentIds));
+      }
     } catch (error: any) {
         console.error("Failed to load data from localStorage:", error);
         setProjects([]);
@@ -138,8 +152,9 @@ const App = () => {
     try {
       localStorage.setItem('hmap-projects', JSON.stringify(updatedProjects));
       notifyUpdate();
-    } catch (error: any) {
-      console.error("Failed to save projects to localStorage:", error);
+// FIX: Corrected catch block variable name to resolve 'Cannot find name' error, which was likely a red herring from a larger structural issue.
+    } catch (e: any) {
+      console.error("Failed to save projects to localStorage:", e);
     }
   };
 
@@ -225,6 +240,14 @@ const App = () => {
     setSelectedProject(project);
     if (project) {
         localStorage.setItem('hmap-selected-project-id', project.id);
+        const MAX_RECENT = 4;
+        const updatedRecentIds = [
+            project.id,
+            ...recentlyViewedIds.filter(id => id !== project.id)
+        ].slice(0, MAX_RECENT);
+        
+        setRecentlyViewedIds(updatedRecentIds);
+        localStorage.setItem('hmap-recently-viewed', JSON.stringify(updatedRecentIds));
     } else {
         localStorage.removeItem('hmap-selected-project-id');
     }
@@ -268,6 +291,9 @@ const App = () => {
     setProjects(updatedProjects);
     saveProjectsToStorage(updatedProjects);
     cleanupProjectData(projectToDelete.id);
+    const updatedRecentIds = recentlyViewedIds.filter(id => id !== projectToDelete.id);
+    setRecentlyViewedIds(updatedRecentIds);
+    localStorage.setItem('hmap-recently-viewed', JSON.stringify(updatedRecentIds));
     if (selectedProject && selectedProject.id === projectToDelete.id) {
         setSelectedProject(null);
     }
@@ -317,76 +343,75 @@ const App = () => {
     localStorage.removeItem('hmap-selected-project-id');
   };
 
-  if (!currentUser) {
-    return (
-        <>
-            <style>{GlobalStyles}</style>
-            <AuthView onLogin={(user) => setCurrentUser(user)} />
-        </>
-    );
-  }
-
   return (
     <>
         <style>{GlobalStyles}</style>
-        {/* FIX: Add missing notification-related props to Header. */}
-        <Header 
-            onNewProject={handleNewProjectRequest} 
-            onHomeClick={() => handleSelectProject(null)}
-            disabled={!ai}
-            isLandingPage={!selectedProject}
-            currentUser={currentUser}
-            onLogout={handleLogout}
-            notifications={selectedProject?.notifications || []}
-            onNotificationClick={handleNotificationClick}
-            onMarkAllRead={handleMarkAllRead}
-        />
-        <main>
-            {selectedProject ? (
-                <ProjectDashboard 
-                    project={selectedProject} 
-                    onBack={() => handleSelectProject(null)} 
-                    ai={ai}
-                    saveProject={handleSaveProject}
+
+        {!currentUser ? (
+            <AuthView onLogin={(user) => setCurrentUser(user)} />
+        ) : (
+            <>
+                <Header 
+                    onNewProject={handleNewProjectRequest} 
+                    onHomeClick={() => handleSelectProject(null)}
+                    disabled={!ai}
+                    isLandingPage={!selectedProject}
                     currentUser={currentUser}
-                    key={appKey}
+                    onLogout={handleLogout}
+                    notifications={selectedProject?.notifications || []}
+                    onNotificationClick={handleNotificationClick}
+                    onMarkAllRead={handleMarkAllRead}
                 />
-            ) : (
-                <LandingPage
+                <main>
+                    {selectedProject ? (
+                        <ProjectDashboard 
+                            project={selectedProject} 
+                            onBack={() => handleSelectProject(null)} 
+                            ai={ai}
+                            saveProject={handleSaveProject}
+                            currentUser={currentUser}
+                            key={appKey}
+                        />
+                    ) : (
+                        <LandingPage
+                            projects={userProjects}
+                            onSelectProject={handleSelectProject}
+                            onNewProject={handleNewProjectRequest}
+                            apiKeyStatus={apiKeyStatus}
+                            onSetUserKey={handleSetUserKey}
+                            disabled={!ai}
+                            onRequestDelete={handleRequestDeleteProject}
+                            currentUser={currentUser}
+                            onSelectTask={handleSelectTask}
+                            recentlyViewedProjects={recentlyViewedProjects}
+                        />
+                    )}
+                </main>
+                <NewProjectModal 
+                    isOpen={isModalOpen} 
+                    onClose={() => handleModalOpen(false)} 
+                    onCreateProject={handleCreateProject}
                     projects={userProjects}
                     onSelectProject={handleSelectProject}
-                    onNewProject={handleNewProjectRequest}
-                    apiKeyStatus={apiKeyStatus}
-                    onSetUserKey={handleSetUserKey}
-                    disabled={!ai}
                     onRequestDelete={handleRequestDeleteProject}
+                    ai={ai}
                     currentUser={currentUser}
-                    onSelectTask={handleSelectTask}
                 />
-            )}
-        </main>
-        <NewProjectModal 
-            isOpen={isModalOpen} 
-            onClose={() => handleModalOpen(false)} 
-            onCreateProject={handleCreateProject}
-            projects={userProjects}
-            onSelectProject={handleSelectProject}
-            onRequestDelete={handleRequestDeleteProject}
-            ai={ai}
-            currentUser={currentUser}
-        />
-        {projectToDelete && (
-          <DeleteProjectConfirmationModal
-              isOpen={isDeleteConfirmationOpen}
-              onClose={() => {
-                  logAction('Cancel Project Deletion', projectToDelete.name, { projectId: projectToDelete.id });
-                  setIsDeleteConfirmationOpen(false);
-                  setProjectToDelete(null);
-              }}
-              onConfirm={handleConfirmDeletion}
-              projectName={projectToDelete.name}
-          />
+                {projectToDelete && (
+                  <DeleteProjectConfirmationModal
+                      isOpen={isDeleteConfirmationOpen}
+                      onClose={() => {
+                          logAction('Cancel Project Deletion', projectToDelete.name, { projectId: projectToDelete.id });
+                          setIsDeleteConfirmationOpen(false);
+                          setProjectToDelete(null);
+                      }}
+                      onConfirm={handleConfirmDeletion}
+                      projectName={projectToDelete.name}
+                  />
+                )}
+            </>
         )}
+        
         <button className="help-fab" onClick={() => handleToggleHelpModal(true)} aria-label="Open Help">?</button>
         <HelpModal isOpen={isHelpModalOpen} onClose={() => handleToggleHelpModal(false)} />
     </>

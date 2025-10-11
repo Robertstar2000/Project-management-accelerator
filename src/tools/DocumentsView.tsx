@@ -115,13 +115,14 @@ Provide the complete, independent source code for each required file. Do not inc
             let context = '';
             if (firstDoc && phasesData[firstDoc.id]?.compactedContent) {
                 context += `--- Document: ${firstDoc.title} (Compacted) ---\n${phasesData[firstDoc.id].compactedContent}\n\n`;
-            }
-            if (wbsDoc && phasesData[wbsDoc.id]?.compactedContent) {
-                context += `--- Document: ${wbsDoc.title} (Compacted) ---\n${phasesData[wbsDoc.id].compactedContent}\n\n`;
+            } else {
+                context += `--- Document: ${firstDoc.title} (Compacted) ---\nNot available. Please generate and approve this document.\n\n`;
             }
 
-            if (!context) {
-                context = 'Key planning documents (Concept Proposal, WBS) have not been generated or compacted yet.';
+            if (wbsDoc && phasesData[wbsDoc.id]?.compactedContent) {
+                context += `--- Document: ${wbsDoc.title} (Compacted) ---\n${phasesData[wbsDoc.id].compactedContent}\n\n`;
+            } else {
+                 context += `--- Document: ${wbsDoc.title} (Compacted) ---\nNot available. Please generate and approve this document.\n\n`;
             }
 
             const projectDataSummary = {

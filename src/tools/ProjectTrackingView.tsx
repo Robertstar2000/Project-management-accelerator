@@ -1,73 +1,62 @@
 
 
-
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { TeamAssignmentsView } from './TeamView';
 import { Project, Task, User, Milestone, Sprint } from '../types';
 import { WorkloadView } from './WorkloadView';
-
-const parseResourcesFromMarkdown = (markdownText: string): string[] => {
-    if (!markdownText) return [];
-    const lines = markdownText.split('\n');
-    const resourceSectionKeywords = ['software', 'hardware', 'partners', 'tools'];
-    let resourceLines: string[] = [];
-    let inSection = false;
-    for (const line of lines) {
-        if (line.match(/^##\s/)) { // A heading marks a new section
-            inSection = resourceSectionKeywords.some(keyword => line.toLowerCase().includes(keyword));
-        }
-        if (inSection && line.match(/^[-*]\s+/)) {
-            resourceLines.push(line);
-        }
-    }
-    return resourceLines.map(line => line.replace(/^[-*]\s+/, '').split(/[:(]/)[0].trim()).filter(Boolean);
-};
+import { parseResourcesFromMarkdown } from '../utils/be-logic';
 
 const ResourcesView = ({ project, onUpdateProject }) => {
     const [resources, setResources] = useState(project.resources || []);
 
     const extractedResources = useMemo(() => {
         const resourceDoc = project.documents.find(d => d.title === 'Resources & Skills List');
-        if (!resourceDoc || !project.phasesData || !project.phasesData[resourceDoc.id]) return [];
+        if (!resourceDoc || !project.phasesData || !project.phasesData[resourceDoc.id]?.content) return [];
         return parseResourcesFromMarkdown(project.phasesData[resourceDoc.id].content);
     }, [project.documents, project.phasesData]);
 
     useEffect(() => {
-        const newResources = [...(project.resources || [])];
-        const existingResourceNames = new Set(newResources.map(r => r.name));
-        
-        extractedResources.forEach(name => {
-            if (!existingResourceNames.has(name)) {
-                newResources.push({ name, estimate: 0, actual: 0 });
-            }
-        });
-        // This check prevents an infinite loop by only setting state if there's a change.
-        if (newResources.length !== (project.resources || []).length) {
-            setResources(newResources);
+        // This effect runs when the document content changes.
+        // It merges newly extracted resources with the existing state.
+        const currentResourceNames = new Set(resources.map(r => r.name));
+        const newResourcesToAdd = extractedResources
+            .filter(name => !currentResourceNames.has(name))
+            .map(name => ({ name, estimate: 0, actual: 0 }));
+
+        if (newResourcesToAdd.length > 0) {
+            setResources(prev => [...prev, ...newResourcesToAdd]);
         }
-    }, [extractedResources, project.resources]);
+    }, [extractedResources]);
+    
+    useEffect(() => {
+        // This effect synchronizes the component's state with the project prop.
+        setResources(project.resources || []);
+    }, [project.resources]);
 
     const handleUpdate = (index, field, value) => {
         const newResources = [...resources];
-        newResources[index] = { ...newResources[index], [field]: value };
+        const numValue = field === 'name' ? value : parseFloat(value) || 0;
+        newResources[index] = { ...newResources[index], [field]: numValue };
         setResources(newResources);
     };
 
-    const handleSave = () => {
-        onUpdateProject({ resources });
+    const handleBlur = () => {
+        if (JSON.stringify(project.resources) !== JSON.stringify(resources)) {
+            onUpdateProject({ resources });
+        }
     };
 
     return (
         <div>
-            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>Track estimated vs. actual costs for non-labor resources. The list is auto-populated from the 'Resources & Skills List' document.</p>
+            <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>Track estimated vs. actual costs for non-labor resources. The list is auto-populated from the 'Resources & Skills List' document. Changes are saved automatically when you click away from a field.</p>
             <table className="task-list-table">
                 <thead><tr><th>Resource Name</th><th>Estimated Cost</th><th>Actual Cost</th></tr></thead>
                 <tbody>
                     {resources.map((resource, index) => (
                         <tr key={index}>
-                            <td><input type="text" value={resource.name} onChange={(e) => handleUpdate(index, 'name', e.target.value)} /></td>
-                            <td><input type="number" value={resource.estimate || ''} onChange={(e) => handleUpdate(index, 'estimate', parseFloat(e.target.value))} /></td>
-                            <td><input type="number" value={resource.actual || ''} onChange={(e) => handleUpdate(index, 'actual', parseFloat(e.target.value))} /></td>
+                            <td><input type="text" value={resource.name} onChange={(e) => handleUpdate(index, 'name', e.target.value)} onBlur={handleBlur} /></td>
+                            <td><input type="number" value={resource.estimate || ''} onChange={(e) => handleUpdate(index, 'estimate', e.target.value)} onBlur={handleBlur} /></td>
+                            <td><input type="number" value={resource.actual || ''} onChange={(e) => handleUpdate(index, 'actual', e.target.value)} onBlur={handleBlur} /></td>
                         </tr>
                     ))}
                      {resources.length === 0 && (
@@ -79,7 +68,6 @@ const ResourcesView = ({ project, onUpdateProject }) => {
                     )}
                 </tbody>
             </table>
-            <button onClick={handleSave} className="button" style={{marginTop: '1rem'}}>Save Resource Costs</button>
         </div>
     );
 };

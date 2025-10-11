@@ -46,6 +46,12 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
         setIsEditing(false);
     };
 
+    const handleAutoSaveOnBlur = () => {
+        if (editedContent !== phaseData) {
+            updatePhaseData(phase.id, editedContent);
+        }
+    };
+
     const handleDescriptionFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file && file.type === 'text/plain') {
@@ -112,6 +118,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                          <textarea 
                             value={editedContent}
                             onChange={(e) => setEditedContent(e.target.value)}
+                            onBlur={handleAutoSaveOnBlur}
                             placeholder={placeholderText}
                             aria-label={`Content for ${phase.title}`}
                         />
@@ -121,6 +128,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ phase, project, phaseData,
                          <textarea 
                             value={editedContent}
                             onChange={(e) => setEditedContent(e.target.value)}
+                            onBlur={handleAutoSaveOnBlur}
                             placeholder={placeholderText}
                             aria-label={`Content for ${phase.title}`}
                         />

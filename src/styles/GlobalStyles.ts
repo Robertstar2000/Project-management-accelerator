@@ -624,7 +624,7 @@ export const GlobalStyles = `
     position: absolute;
     top: 1rem;
     right: 1rem;
-    opacity: 0;
+    opacity: 0.6;
     transition: opacity 0.2s ease;
   }
   .project-card-container:hover .delete-project-button {
@@ -988,8 +988,8 @@ export const GlobalStyles = `
       white-space: nowrap;
       cursor: pointer;
       position: relative;
-      z-index: 2; /* To ensure text renders above grid lines */
-      overflow: visible; /* Allow text to overflow */
+      z-index: 2;
+      overflow: visible;
   }
   .gantt-task-bar.subcontracted::after {
       content: '';

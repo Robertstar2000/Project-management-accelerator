@@ -100,6 +100,15 @@ const runUnitTests = (): TestCase[] => {
                         if (sectionEndIndex === -1) sectionEndIndex = lines.length;
                         roleLines = lines.slice(sectionStartIndex + 1, sectionEndIndex).filter(line => line.match(/^[-*]\s+/));
                     }
+                    if (roleLines.length === 0) {
+                        let foundList = false;
+                        for (const line of lines) {
+                            if (line.match(/^[-*]\s+/)) {
+                                foundList = true;
+                                roleLines.push(line);
+                            } else if (foundList && line.trim() === '') break;
+                        }
+                    }
                     const roles = new Set<string>();
                     for (const line of roleLines) {
                         const roleName = line.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').split(/[:(]/)[0].trim();
@@ -107,10 +116,16 @@ const runUnitTests = (): TestCase[] => {
                     }
                     return Array.from(roles);
                 };
+                
                 const markdown = `## Required Roles\n- **Project Manager**: PMP\n- Lead Engineer (Backend)\n* UI/UX Designer`;
                 const roles = parseRolesFromMarkdown(markdown);
-                assert(roles.length === 3, "Should find 3 roles");
-                assert(roles.includes('Project Manager') && roles.includes('Lead Engineer') && roles.includes('UI/UX Designer'), "Should parse all role names correctly");
+                assert(roles.length === 3, "Should find 3 roles from heading");
+                assert(roles.includes('Project Manager') && roles.includes('Lead Engineer') && roles.includes('UI/UX Designer'), "Should parse all role names correctly from heading");
+                
+                const markdown2 = `This document lists our team.\n- Admin\n- Tester\n\nThat is all.`;
+                const roles2 = parseRolesFromMarkdown(markdown2);
+                assert(roles2.length === 2, "Should find 2 roles from simple list");
+                assert(roles2.includes('Admin') && roles2.includes('Tester'), "Should parse roles from simple list");
             }
         },
         {
@@ -149,26 +164,30 @@ const runIntegrationTests = (): TestCase[] => {
         {
             name: "AI: Gathers correct document context for generation",
             test: () => {
-                 const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
-                    const sortedDocuments = [...allDocuments].sort((a, b) => a.phase - b.phase || a.title.localeCompare(b.title));
+                const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
+                    const sortedDocuments = [...allDocuments].sort((a, b) => 
+                        a.phase - b.phase || 
+                        (a.sequence || 1) - (b.sequence || 1) || 
+                        a.title.localeCompare(b.title)
+                    );
                     const currentIndex = sortedDocuments.findIndex(d => d.id === docToGenerate.id);
                     const firstDoc = sortedDocuments[0];
                     const firstDocPhaseData = firstDoc ? allPhasesData[firstDoc.id] : null;
                     const firstDocContext = (firstDoc && firstDoc.status === 'Approved' && firstDocPhaseData?.compactedContent)
-                        ? { doc: firstDoc, content: `--- Context from "${firstDoc.title}" ---\n${firstDocPhaseData.compactedContent}\n\n` }
+                        ? { doc: firstDoc, content: firstDocPhaseData.compactedContent }
                         : null;
                     const prevDoc = currentIndex > 0 ? sortedDocuments[currentIndex - 1] : null;
                     const prevDocPhaseData = prevDoc ? allPhasesData[prevDoc.id] : null;
                     const prevDocContext = (prevDoc && prevDoc.status === 'Approved' && prevDocPhaseData?.compactedContent)
-                        ? { doc: prevDoc, content: `--- Context from "${prevDoc.title}" ---\n${prevDocPhaseData.compactedContent}\n\n` }
+                        ? { doc: prevDoc, content: prevDocPhaseData.compactedContent }
                         : null;
                     return { firstDocContext, prevDocContext };
                 };
                 
                 const docs = [
-                    { id: 'doc1', title: 'Concept', phase: 1, status: 'Approved' },
-                    { id: 'doc2', title: 'Resources', phase: 2, status: 'Approved' },
-                    { id: 'doc3', title: 'SOW', phase: 5, status: 'Working' },
+                    { id: 'doc1', title: 'Concept', phase: 1, sequence: 1, status: 'Approved' },
+                    { id: 'doc2', title: 'Resources', phase: 2, sequence: 1, status: 'Approved' },
+                    { id: 'doc3', title: 'SOW', phase: 5, sequence: 1, status: 'Working' },
                 ];
                 const phasesData = {
                     'doc1': { compactedContent: 'compacted concept' },
@@ -176,14 +195,13 @@ const runIntegrationTests = (): TestCase[] => {
                 };
                 
                 let context = getRelevantContext(docs[2], docs, phasesData);
-                let prevDocPart = (context.prevDocContext && context.prevDocContext.doc.id !== context.firstDocContext?.doc.id) ? context.prevDocContext.content : '';
-
-                assert(context.firstDocContext.content.includes('compacted concept'), "Should include first doc context");
-                assert(prevDocPart.includes('compacted resources'), "Should include previous doc context");
+                assert(context.firstDocContext.content === 'compacted concept', "Should include first doc context");
+                assert(context.prevDocContext.content === 'compacted resources', "Should include previous doc context");
 
                 context = getRelevantContext(docs[1], docs, phasesData);
-                prevDocPart = (context.prevDocContext && context.prevDocContext.doc.id !== context.firstDocContext?.doc.id) ? context.prevDocContext.content : '';
-                assert(prevDocPart === '', "Previous doc part should be empty when it's the same as the first doc");
+                assert(context.firstDocContext.content === 'compacted concept', "For doc2, first doc context should still be from doc1");
+                assert(context.prevDocContext.content === 'compacted concept', "For doc2, prev doc context should be from doc1");
+                assert(context.prevDocContext.doc.id === context.firstDocContext.doc.id, "Prev doc should be the same as first doc");
             }
         }
     ];
@@ -217,31 +235,47 @@ const runFunctionalTests = (project, saveProject): TestCase[] => {
             test: async () => {
                 const planContent = await mockAi.models.generateContent({contents: 'Detailed Plans'});
 
-                const parseMarkdownTable = (sectionString) => {
+                const parseMarkdownTable = (sectionString: string) => {
                     if (!sectionString) return [];
                     const lines = sectionString.trim().split('\n');
                     let headerIndex = -1;
                     for (let i = 0; i < lines.length - 1; i++) {
-                        if (lines[i].includes('|') && lines[i+1].match(/^[|\s-:]+$/)) headerIndex = i;
+                        const currentRow = lines[i];
+                        const nextRow = lines[i+1];
+                        if (currentRow.includes('|') && nextRow.match(/^[|\s-:]+$/) && nextRow.includes('-')) {
+                            headerIndex = i;
+                            break;
+                        }
                     }
                     if (headerIndex === -1) return [];
-                    const headers = lines[headerIndex].split('|').map(h => h.trim().toLowerCase().replace(/\s/g, '_'));
-                    return lines.slice(headerIndex + 2).map(row => {
+                    const headerLine = lines[headerIndex];
+                    const dataLines = lines.slice(headerIndex + 2);
+                    const headers = headerLine.split('|').map(h => h.trim().toLowerCase().replace(/[()]/g, '').replace(/[\s-]+/g, '_'));
+                    const data = dataLines.map(row => {
+                        if (!row.includes('|')) return null; 
                         const values = row.split('|').map(v => v.trim());
-                        const obj = {};
-                        headers.forEach((header, i) => { if(header) obj[header] = values[i]; });
+                        if (values.length !== headers.length) return null;
+                        const obj: { [key:string]: string } = {};
+                        headers.forEach((header, index) => {
+                            if (header) {
+                                obj[header] = values[index];
+                            }
+                        });
                         return obj;
-                    });
+                    }).filter(Boolean);
+                    return data as any[];
                 };
                 
                 const tasksText = planContent.text.split('## Tasks')[1].split('## Milestones')[0];
                 const parsedTasks = parseMarkdownTable(tasksText);
                 assert(parsedTasks.length === 2, "Should parse 2 tasks from plan");
                 assert(parsedTasks[1]['dependencies'] === 'Design Mockups', "Should correctly parse dependencies");
+                assert('start_date_yyyy_mm_dd' in parsedTasks[0], "Should correctly parse date header");
 
                 const milestonesText = planContent.text.split('## Milestones')[1];
                 const parsedMilestones = parseMarkdownTable(milestonesText);
                 assert(parsedMilestones.length === 2, "Should parse 2 milestones");
+                assert('date_yyyy_mm_dd' in parsedMilestones[0], "Should correctly parse milestone date header");
             }
         }
     ];

@@ -1,4 +1,17 @@
-# Project Management Accelerator Help
+# Project Management Accelerator
+
+An AI-powered project management companion that guides you through the full lifecycle of a project using the proven **Hyper-Agile Management Process (HMAP)**. This tool automates documentation, accelerates planning, and provides clear visibility into project execution for individuals and teams.
+
+## Core Features
+
+-   **✨ AI-Powered Planning**: Generate comprehensive project documents, from concept proposals to detailed work breakdowns, in seconds using Google's Gemini API.
+-   **🔐 Multi-User & Team-Based**: Secure user accounts ensure that projects are private. Assign roles and collaborate with your team.
+-   **🧭 Structured Workflow**: Follow a clear, phase-based methodology (HMAP) that ensures all critical planning steps are completed in the right order, preventing downstream issues.
+-   **📊 Comprehensive Tracking**: Visualize your project's progress with an interactive Gantt chart, Kanban board, workload heat map, and milestone tracker.
+-   **💬 Collaboration Tools**: Dive into task details, leave comments, attach files, and receive automatic notifications when your work is unblocked.
+-   **🎛️ Dynamic What-If Analysis**: Instantly model the impact of change requests on your budget and timeline before committing, enabling data-driven decision-making.
+
+---
 
 ## User Operations Manual
 

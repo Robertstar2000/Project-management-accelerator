@@ -12,6 +12,7 @@ import { logAction } from '../utils/logging';
 import { TaskDetailModal } from '../components/TaskDetailModal';
 import { AiReportModal } from '../components/AiReportModal';
 import { TestingView } from '../tools/TestingView';
+import { parseMarkdownTable } from '../utils/be-logic';
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
     let lastError: Error;
@@ -71,37 +72,6 @@ const getPromptFunction = (docTitle, phase) => {
     // Fallback for any other document in any other phase (like "Creative Brief" in Phase 1)
     return PROMPTS.genericDocumentPrompt;
 }
-
-const parseMarkdownTable = (sectionString: string) => {
-    if (!sectionString) return [];
-    const lines = sectionString.trim().split('\n');
-    let headerIndex = -1;
-    for (let i = 0; i < lines.length - 1; i++) {
-        const currentRow = lines[i];
-        const nextRow = lines[i+1];
-        if (currentRow.includes('|') && nextRow.match(/^[|\s-:]+$/) && nextRow.includes('-')) {
-            headerIndex = i;
-            break;
-        }
-    }
-    if (headerIndex === -1) return [];
-    const headerLine = lines[headerIndex];
-    const dataLines = lines.slice(headerIndex + 2);
-    const headers = headerLine.split('|').map(h => h.trim().toLowerCase().replace(/[()]/g, '').replace(/[\s-]+/g, '_'));
-    const data = dataLines.map(row => {
-        if (!row.includes('|')) return null; 
-        const values = row.split('|').map(v => v.trim());
-        if (values.length !== headers.length) return null;
-        const obj: { [key: string]: string } = {};
-        headers.forEach((header, index) => {
-            if (header) {
-                obj[header] = values[index];
-            }
-        });
-        return obj;
-    }).filter(Boolean);
-    return data as any[];
-};
 
 const getRelevantContext = (docToGenerate, allDocuments, allPhasesData) => {
     const sortedDocuments = [...allDocuments].sort((a, b) => 
@@ -326,8 +296,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 finalContext = "CRITICAL: The required preceding documents have not been approved or their compacted context is unavailable. Generate this document based on its title and project parameters alone.";
             }
 
-            const promptText = getPromptTextWithContext(finalContext.trim());
-            const prompt = promptText.length > MAX_PAYLOAD_CHARS ? truncatePrompt(promptText) : promptText;
+            const prompt = getPromptTextWithContext(finalContext.trim());
+            // The context has already been truncated to fit within payload limits.
+            // The final prompt truncation was removed to prevent cutting off instructions.
             
             const result: GenerateContentResponse = await withRetry(() => ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt }));
             const newContent = result.text;
@@ -569,17 +540,18 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
     
             // Parse Tasks
             const parsedTasks = parseMarkdownTable(tasksText);
-            const taskNameMap = new Map<string, string>();
             
+            // Create a map of lowercase task names to their future ID for dependency resolution
+            const taskNameToIdMap = new Map<string, string>();
             const newTasks: Task[] = parsedTasks.map((t, index) => {
                 const taskId = `task-${Date.now()}-${index}`;
-                const taskName = t.task_name;
-                if (taskName) {
-                    taskNameMap.set(taskName, taskId);
-                }
+                const taskName = t.task_name || `Untitled Task ${index+1}`;
+                
+                // Use lowercase for the map key to handle case-insensitivity from AI
+                taskNameToIdMap.set(taskName.toLowerCase().trim(), taskId);
                 
                 const sprintName = t.sprint || '';
-                const sprint = projectData.sprints.find(s => s.name.toLowerCase() === sprintName.toLowerCase());
+                const sprint = projectData.sprints.find(s => s.name.toLowerCase() === sprintName.toLowerCase().trim());
     
                 return {
                     id: taskId,
@@ -589,7 +561,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                     endDate: t.end_date_yyyy_mm_dd || new Date().toISOString().split('T')[0],
                     sprintId: sprint ? sprint.id : projectData.sprints[0]?.id || 'sprint1',
                     status: 'todo',
-                    isSubcontracted: t.subcontractor?.toLowerCase() === 'yes',
+                    isSubcontracted: t.subcontractor?.toLowerCase().trim() === 'yes',
                     dependsOn: t.dependencies ? t.dependencies.split(',').map(d => d.trim()) : [], // Store names temporarily
                     description: '',
                     actualTime: null,
@@ -600,9 +572,11 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ project, onB
                 };
             });
     
-            // Resolve Dependencies
+            // Resolve Dependencies using the case-insensitive map
             newTasks.forEach(task => {
-                task.dependsOn = (task.dependsOn as string[]).map(depName => taskNameMap.get(depName)).filter((id): id is string => !!id);
+                task.dependsOn = (task.dependsOn as string[])
+                    .map(depName => taskNameToIdMap.get(depName.toLowerCase().trim()))
+                    .filter((id): id is string => !!id);
             });
     
             // Parse Milestones

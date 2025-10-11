@@ -1,7 +1,8 @@
 
 
-import React from 'react';
-import { Project, Task, TeamMember } from '../types';
+import React, { useMemo } from 'react';
+import { Project } from '../types';
+import { parseRolesFromMarkdown } from '../utils/be-logic';
 
 // Helper to get the start of a week (Sunday)
 const getStartOfWeek = (date: Date): Date => {
@@ -39,21 +40,27 @@ interface WorkloadViewProps {
 }
 
 export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
-    const { team, tasks, startDate, endDate } = project;
+    const { team, tasks, startDate, endDate, documents, phasesData } = project;
     
+    const extractedRoles = useMemo(() => {
+        const resourceDoc = documents.find(d => d.title === 'Resources & Skills List');
+        if (!resourceDoc || !phasesData || !phasesData[resourceDoc.id]?.content) return [];
+        return parseRolesFromMarkdown(phasesData[resourceDoc.id].content);
+    }, [documents, phasesData]);
+
     if (!tasks || tasks.length === 0) {
-        return <p>Workload view will be available once tasks are generated and team members are assigned.</p>;
+        return <p>Workload view will be available once tasks are generated.</p>;
+    }
+
+    if (extractedRoles.length === 0) {
+        return <p>Workload view requires roles to be defined in the 'Resources & Skills List' document.</p>;
     }
 
     const projectWeeks = getProjectWeeks(startDate, endDate);
     
-    // Filter for team members who are actually assigned to a role that has tasks
-    const relevantTeamMembers = team.filter(member => 
-        member.role && tasks.some(task => task.role === member.role)
-    );
-
-    const workloadData = relevantTeamMembers.map(member => {
-        const memberTasks = tasks.filter(task => task.role && member.role === task.role);
+    const workloadData = extractedRoles.map(role => {
+        const member = team.find(m => m.role === role);
+        const roleTasks = tasks.filter(task => task.role === role);
         
         const weeklyWorkload = projectWeeks.map(weekStart => {
             const weekEnd = new Date(weekStart);
@@ -62,12 +69,11 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
             let totalDaysInWeek = 0;
             const tasksInWeek = [];
             
-            memberTasks.forEach(task => {
+            roleTasks.forEach(task => {
                 const taskStart = new Date(task.startDate);
                 const taskEnd = new Date(task.endDate);
                 taskStart.setHours(0, 0, 0, 0);
                 taskEnd.setHours(0, 0, 0, 0);
-
 
                 // Check for overlap between task and week
                 if (taskStart <= weekEnd && taskEnd >= weekStart) {
@@ -87,6 +93,7 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
         });
         
         return {
+            role,
             member,
             weeklyWorkload,
         };
@@ -95,7 +102,7 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
     return (
         <div style={{ overflowX: 'auto' }}>
             <p style={{color: 'var(--secondary-text)', marginBottom: '1.5rem'}}>
-                View task distribution across team members by week. Each cell shows the total days of work assigned. Colors indicate workload intensity (Green: light, Amber: medium, Red: heavy).
+                View task distribution across project roles by week. Each cell shows the total days of work assigned. Colors indicate workload intensity (Green: light, Amber: medium, Red: heavy).
             </p>
             <table className="task-list-table workload-table">
                 <thead>
@@ -109,10 +116,10 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {workloadData.map(({ member, weeklyWorkload }) => (
-                        <tr key={member.userId} style={{cursor: 'initial'}}>
+                    {workloadData.map(({ role, member, weeklyWorkload }) => (
+                        <tr key={role} style={{cursor: 'initial'}}>
                             <td style={{ position: 'sticky', left: 0, background: 'var(--card-background)', zIndex: 1, fontWeight: 'bold' }}>
-                                <strong>{member.role}</strong> ({member.name})
+                                {role} ({member?.name || 'Unassigned'})
                             </td>
                             {weeklyWorkload.map((weekData, index) => {
                                 const title = weekData.tasks.length > 0

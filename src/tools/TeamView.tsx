@@ -1,39 +1,8 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Project, User } from '../types';
-
-const parseRolesFromMarkdown = (markdownText: string): string[] => {
-    if (!markdownText) return [];
-    const lines = markdownText.split('\n');
-    const roleSectionKeywords = ['roles', 'personnel', 'team members', 'team'];
-    let roleLines: string[] = [];
-    let sectionStartIndex = -1;
-    for (const keyword of roleSectionKeywords) {
-        const headingRegex = new RegExp(`^#+\\s*.*${keyword}.*`, 'i');
-        sectionStartIndex = lines.findIndex(line => headingRegex.test(line));
-        if (sectionStartIndex !== -1) break;
-    }
-    if (sectionStartIndex !== -1) {
-        let sectionEndIndex = lines.findIndex((line, i) => i > sectionStartIndex && line.match(/^#+/));
-        if (sectionEndIndex === -1) sectionEndIndex = lines.length;
-        roleLines = lines.slice(sectionStartIndex + 1, sectionEndIndex).filter(line => line.match(/^[-*]\s+/));
-    }
-    if (roleLines.length === 0) {
-        let foundList = false;
-        for (const line of lines) {
-            if (line.match(/^[-*]\s+/)) {
-                foundList = true;
-                roleLines.push(line);
-            } else if (foundList && line.trim() === '') break;
-        }
-    }
-    const roles = new Set<string>();
-    for (const line of roleLines) {
-        const roleName = line.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').split(/[:(]/)[0].trim();
-        if (roleName) roles.add(roleName);
-    }
-    return Array.from(roles);
-};
+import { parseRolesFromMarkdown } from '../utils/be-logic';
 
 interface TeamAssignmentsViewProps {
     project: Project;
