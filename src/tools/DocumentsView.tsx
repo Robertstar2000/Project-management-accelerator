@@ -1,8 +1,8 @@
 
-
 import React, { useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { GoogleGenAI } from "@google/genai";
+import { DocumentViewerModal } from '../components/DocumentViewerModal';
 
 const getStatusChipClass = (status) => {
     switch (status) {
@@ -17,6 +17,12 @@ const getStatusChipClass = (status) => {
 export const DocumentsView = ({ project, documents, onUpdateDocument, phasesData, ai }) => {
     const uploadInputRef = useRef<HTMLInputElement>(null);
     const [isGenerating, setIsGenerating] = useState<string | null>(null);
+    const [viewingDocument, setViewingDocument] = useState<{title: string, content: string} | null>(null);
+
+    const handleViewDocument = (doc) => {
+        const content = phasesData[doc.id]?.content || 'This document has no content yet. Please generate it in the Project Phases view.';
+        setViewingDocument({ title: doc.title, content });
+    };
 
     const handleUploadClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
@@ -247,64 +253,75 @@ Present your findings in a clear, structured report using Markdown. Use the foll
     };
 
     return (
-        <div className="tool-card">
-            <h2 className="subsection-title">Documents Center</h2>
-            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap'}}>
-                <button className="button" onClick={handleCreateProjectPrompt} disabled={!!isGenerating}>
-                    {isGenerating === 'project' ? (
-                        <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
-                            <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
-                            <span>Generating...</span>
-                        </span>
-                    ) : 'Create Project Prompt'}
-                </button>
-                <button className="button" onClick={handleCreateSimulationPrompt} disabled={!!isGenerating}>
-                    {isGenerating === 'simulation' ? (
-                        <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
-                            <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
-                            <span>Generating...</span>
-                        </span>
-                    ) : 'Create Simulation Prompt'}
-                </button>
-                <button className="button" onClick={handleDownloadAll} disabled={!!isGenerating}>Download All as .zip</button>
+        <>
+            <div className="tool-card">
+                <h2 className="subsection-title">Documents Center</h2>
+                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap'}}>
+                    <button className="button" onClick={handleCreateProjectPrompt} disabled={!!isGenerating}>
+                        {isGenerating === 'project' ? (
+                            <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
+                                <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
+                                <span>Generating...</span>
+                            </span>
+                        ) : 'Create Project Prompt'}
+                    </button>
+                    <button className="button" onClick={handleCreateSimulationPrompt} disabled={!!isGenerating}>
+                        {isGenerating === 'simulation' ? (
+                            <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}>
+                                <div className="spinner" style={{width: '1em', height: '1em', borderWidth: '2px'}}></div>
+                                <span>Generating...</span>
+                            </span>
+                        ) : 'Create Simulation Prompt'}
+                    </button>
+                    <button className="button" onClick={handleDownloadAll} disabled={!!isGenerating}>Download All as .zip</button>
+                </div>
+                <table className="document-table">
+                    <thead><tr><th>Title</th><th>Version</th><th>Status</th><th>Owner</th><th>Phase</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {documents && documents.map(doc => (
+                            <tr key={doc.id}>
+                                <td>{doc.title}</td>
+                                <td>{doc.version}</td>
+                                <td>
+                                    <select 
+                                        value={doc.status} 
+                                        onChange={(e) => onUpdateDocument(doc.id, e.target.value)}
+                                        className={`document-status-select ${getStatusChipClass(doc.status)}`}
+                                        aria-label={`Status for ${doc.title}`}
+                                    >
+                                        <option value="Working">Working</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Rejected">Rejected</option>
+                                        <option value="Failed">Failed</option>
+                                    </select>
+                                </td>
+                                <td>{doc.owner}</td>
+                                <td>{doc.phase}</td>
+                                <td>
+                                    <button className="button button-small" onClick={() => handleViewDocument(doc)}>View</button>
+                                </td>
+                            </tr>
+                        ))}
+                        {(!documents || documents.length === 0) && (
+                            <tr><td colSpan={6} style={{textAlign: 'center'}}>No documents found for this project.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+                <div className="upload-dropzone" onClick={() => uploadInputRef.current?.click()}>
+                    <p>Drag & drop files to upload</p>
+                    <a href="#" onClick={handleUploadClick} style={{textDecoration: 'underline', color: 'var(--accent-color)'}}>
+                        Open Upload Dialogue
+                    </a>
+                </div>
+                <input type="file" ref={uploadInputRef} style={{ display: 'none' }} multiple />
             </div>
-            <table className="document-table">
-                <thead><tr><th>Title</th><th>Version</th><th>Status</th><th>Owner</th><th>Phase</th><th>Actions</th></tr></thead>
-                <tbody>
-                    {documents && documents.map(doc => (
-                        <tr key={doc.id}>
-                            <td>{doc.title}</td>
-                            <td>{doc.version}</td>
-                            <td>
-                                <select 
-                                    value={doc.status} 
-                                    onChange={(e) => onUpdateDocument(doc.id, e.target.value)}
-                                    className={`document-status-select ${getStatusChipClass(doc.status)}`}
-                                    aria-label={`Status for ${doc.title}`}
-                                >
-                                    <option value="Working">Working</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                    <option value="Failed">Failed</option>
-                                </select>
-                            </td>
-                            <td>{doc.owner}</td>
-                            <td>{doc.phase}</td>
-                            <td><a href="#">View</a> | <a href="#">History</a></td>
-                        </tr>
-                    ))}
-                    {(!documents || documents.length === 0) && (
-                        <tr><td colSpan={6} style={{textAlign: 'center'}}>No documents found for this project.</td></tr>
-                    )}
-                </tbody>
-            </table>
-            <div className="upload-dropzone" onClick={() => uploadInputRef.current?.click()}>
-                <p>Drag & drop files to upload</p>
-                <a href="#" onClick={handleUploadClick} style={{textDecoration: 'underline', color: 'var(--accent-color)'}}>
-                    Open Upload Dialogue
-                </a>
-            </div>
-            <input type="file" ref={uploadInputRef} style={{ display: 'none' }} multiple />
-        </div>
+
+            <DocumentViewerModal 
+                isOpen={!!viewingDocument}
+                onClose={() => setViewingDocument(null)}
+                title={viewingDocument?.title || ''}
+                content={viewingDocument?.content || ''}
+            />
+        </>
     );
 };

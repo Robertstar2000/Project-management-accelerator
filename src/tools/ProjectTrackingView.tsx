@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { TeamAssignmentsView } from './TeamView';
 import { Project, Task, User, Milestone, Sprint } from '../types';
@@ -15,21 +14,23 @@ const ResourcesView = ({ project, onUpdateProject }) => {
         return parseResourcesFromMarkdown(project.phasesData[resourceDoc.id].content);
     }, [project.documents, project.phasesData]);
 
+    // Effect to sync newly parsed resources from the document up to the main project state
     useEffect(() => {
-        // This effect runs when the document content changes.
-        // It merges newly extracted resources with the existing state.
-        const currentResourceNames = new Set(resources.map(r => r.name));
+        const projectResources = project.resources || [];
+        const currentResourceNames = new Set(projectResources.map(r => r.name));
+        
         const newResourcesToAdd = extractedResources
             .filter(name => !currentResourceNames.has(name))
-            .map(name => ({ name, estimate: 0, actual: 0 }));
+            .map(name => ({ name: name, estimate: 0, actual: 0 }));
 
         if (newResourcesToAdd.length > 0) {
-            setResources(prev => [...prev, ...newResourcesToAdd]);
+            const updatedResources = [...projectResources, ...newResourcesToAdd];
+            onUpdateProject({ resources: updatedResources });
         }
-    }, [extractedResources]);
+    }, [extractedResources, project.resources, onUpdateProject]);
     
+    // Effect to sync the local state with the project prop, ensuring UI is up-to-date
     useEffect(() => {
-        // This effect synchronizes the component's state with the project prop.
         setResources(project.resources || []);
     }, [project.resources]);
 
