@@ -45,7 +45,9 @@ CRITICAL: You MUST include the following six core HMAP documents, assigned to th
 - "Statement of Work (SOW)" (must be in phase 5)
 - "Detailed Plans (WBS/WRS)" (must be in phase 7)
 
-In addition to these six, add more documents that are highly specific and standard for the "${discipline}" discipline to meet the total count of ${docCount}. For example, for "Software Development", you might add "Technical Design Specification" and "User Story Backlog". For "Construction", you might add "Permit Applications" and "Bill of Materials". Use your expert knowledge of the discipline to select the most appropriate documents.
+CRITICAL: The list MUST also include at least one formal review checklist document, such as "Preliminary Design Review" (Phase 6) or "Critical Design Review" (Phase 8).
+
+In addition to these core documents, add more documents that are highly specific and standard for the "${discipline}" discipline to meet the total count of ${docCount}. For example, for "Software Development", you might add "Technical Design Specification" and "User Story Backlog". For "Construction", you might add "Permit Applications" and "Bill of Materials". Use your expert knowledge of the discipline to select the most appropriate documents.
 
 Your final output must be a single, raw JSON object, without any surrounding text or markdown formatting. This JSON object must have a single root key named "documents" containing an array of document objects. Each document object must have exactly three keys: "title" (string), "phase" (number), and "sequence" (number). The 'sequence' key must indicate the logical order of generation for documents within the same phase, starting from 1.
 `;
@@ -137,7 +139,7 @@ ${teamSizeInstruction}
 ${complexityInstruction}
 - The WBS should be a bulleted list, 2 levels deep at most.
 - The task list should have a maximum of 5 tasks, presented in chronological order.
-- The tasks must be divided into 2 sprints and include at least one 'Review' task. Assign a relevant role to each task.
+- The tasks must be divided into 2 sprints and include at least one 'Review' task.
 - Each sprint should last 7-14 days.
 - Do not include any explanations. All terminology must be professional and standard for the '${discipline}' field. ${subcontractorMinimalInstruction}
 

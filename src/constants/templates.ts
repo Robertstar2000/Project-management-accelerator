@@ -1,11 +1,11 @@
-
 export const DEFAULT_DOCUMENTS = [
     { id: 'doc-default-1', title: 'Concept Proposal', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 1, sequence: 1 },
     { id: 'doc-default-2', title: 'Resources & Skills List', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 2, sequence: 1 },
     { id: 'doc-default-3', title: 'SWOT Analysis', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 3, sequence: 1 },
     { id: 'doc-default-4', title: 'Kickoff Briefing', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 4, sequence: 1 },
     { id: 'doc-default-5', title: 'Statement of Work (SOW)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 5, sequence: 1 },
-    { id: 'doc-default-6', title: 'Detailed Plans (WBS/WRS)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 7, sequence: 1 },
+    { id: 'doc-default-prelim', title: 'Preliminary Design Review', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 6, sequence: 1 },
+    { id: 'doc-default-7', title: 'Detailed Plans (WBS/WRS)', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 7, sequence: 1 },
     { id: 'doc-default-8', title: 'Critical Review', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 8, sequence: 99 },
     { id: 'doc-default-9', title: 'Deployment Readiness Review', version: 'v1.0', status: 'Working', owner: 'A. User', phase: 9, sequence: 1 },
 ];

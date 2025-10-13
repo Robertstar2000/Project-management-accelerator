@@ -57,18 +57,17 @@ export const parseResourcesFromMarkdown = (markdownText: string): string[] => {
     const lines = markdownText.split('\n');
     const roleSectionKeywords = ['roles', 'personnel', 'team members', 'team'];
     const resources = new Set<string>();
-    let inRoleSection = false;
+    let inRoleSection = false; // Default to false for items before first heading
 
     for (const line of lines) {
-        const headingMatch = line.match(/^#+\s*(.*)/);
-        if (headingMatch) {
-            const headingText = headingMatch[1].toLowerCase();
-            // Check if we are entering or leaving a role section
+        // If the line is a heading, update our section context.
+        if (line.startsWith('#')) {
+            const headingText = line.toLowerCase();
             inRoleSection = roleSectionKeywords.some(keyword => headingText.includes(keyword));
         }
         
-        // Add item to resources if it's a list item AND we are NOT in a role section
-        if (!inRoleSection && line.match(/^[-*]\s+/)) {
+        // If the line is a bullet point AND we are not in a role section, it's a resource.
+        if (line.match(/^[-*]\s+/) && !inRoleSection) {
             const resourceName = line
                 .replace(/^[-*]\s+/, '') // remove bullet
                 .split(/[:(]/)[0]      // remove descriptions (e.g., ": PMP Certified")
@@ -79,7 +78,6 @@ export const parseResourcesFromMarkdown = (markdownText: string): string[] => {
             }
         }
     }
-
     return Array.from(resources);
 };
 
