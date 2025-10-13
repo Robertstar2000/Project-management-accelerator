@@ -1,4 +1,3 @@
-
 // A collection of pure functions for data parsing and transformation.
 // In a production environment, these logic functions would likely reside on a backend server
 // and be accessed via API endpoints.
@@ -56,38 +55,29 @@ export const applyImpact = (baseline, impact) => {
 export const parseResourcesFromMarkdown = (markdownText: string): string[] => {
     if (!markdownText) return [];
     const lines = markdownText.split('\n');
-    const resourceSectionKeywords = ['software', 'hardware', 'partners', 'tools', 'resources'];
+    const roleSectionKeywords = ['roles', 'personnel', 'team members', 'team'];
     const resources = new Set<string>();
-    let inSection = false;
+    let inRoleSection = false;
 
     for (const line of lines) {
-        // Use a regex for more flexible heading matching (e.g., ## Resources, ### Software Tools)
         const headingMatch = line.match(/^#+\s*(.*)/);
         if (headingMatch) {
             const headingText = headingMatch[1].toLowerCase();
-            inSection = resourceSectionKeywords.some(keyword => headingText.includes(keyword));
+            // Check if we are entering or leaving a role section
+            inRoleSection = roleSectionKeywords.some(keyword => headingText.includes(keyword));
         }
         
-        // If we are in a relevant section and the line is a list item
-        if (inSection && line.match(/^[-*]\s+/)) {
+        // Add item to resources if it's a list item AND we are NOT in a role section
+        if (!inRoleSection && line.match(/^[-*]\s+/)) {
             const resourceName = line
                 .replace(/^[-*]\s+/, '') // remove bullet
-                .split(/[:(]/)[0] // remove descriptions
-                .replace(/\*\*/g, '') // remove bold markers
+                .split(/[:(]/)[0]      // remove descriptions (e.g., ": PMP Certified")
+                .replace(/\*\*/g, '')  // remove bold markers
                 .trim();
             if (resourceName && resourceName.toLowerCase() !== 'none') {
                 resources.add(resourceName);
             }
         }
-    }
-    // Fallback if no sections were found but there are lists
-    if (resources.size === 0) {
-        lines.forEach(line => {
-             if (line.match(/^[-*]\s+/)) {
-                const resourceName = line.replace(/^[-*]\s+/, '').split(/[:(]/)[0].replace(/\*\*/g, '').trim();
-                if (resourceName && resourceName.toLowerCase() !== 'none') resources.add(resourceName);
-             }
-        });
     }
 
     return Array.from(resources);

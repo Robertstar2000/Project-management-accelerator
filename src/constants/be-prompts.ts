@@ -1,5 +1,3 @@
-
-
 import { COMPLEXITY_INSTRUCTIONS, SPRINT_INSTRUCTIONS, TEAM_SIZE_INSTRUCTIONS } from './instructions';
 
 export const PROMPTS = {
@@ -64,7 +62,7 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         if (mode === 'minimal') {
             return `Generate a cryptic, one-sentence concept proposal for a project named "${name}" in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} The proposal must be specifically about "${name}". ${subcontractorInstruction} Use technical jargon and abbreviations specific to the '${discipline}' field. ${userInputSection} Output only the sentence.`;
         }
-        return `You are a project manager creating a Concept Proposal for a project named "${name}", which is a project in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} The output must be directly and specifically about planning for "${name}". For example, if the name is "Annual Charity Gala" and the discipline is "Event Management", the proposal must be about planning a charity gala, not generic event concepts. ${subcontractorInstruction}\n\n${userInputSection}Develop a well-structured proposal with clear headings for: "Executive Summary", "Project Vision", "Scope (In-Scope & Out-of-Scope)", "High-Level Objectives", and "Key Success Metrics". Be thorough and clear. You must use professional, industry-standard terminology specific to the '${discipline}' field.`;
+        return `You are a project manager creating a Concept Proposal for a project named "${name}", which is a project in the "${discipline}" field. ${teamSizeInstruction} ${complexityInstruction} The output must be directly and specifically about planning for "${name}". For example, if the name is "Annual Charity Gala" and the discipline is "Event Management", the proposal must be about planning a charity gala, not generic event concepts. ${subcontractorInstruction}\n\n${userInputSection}Develop a well-structured proposal with clear headings for: "Executive Summary", "Project Vision", "Scope (In-Scope & Out-of-Scope)", "High-Level Objectives", and "Key Success Metrics". The entire proposal must be framed through the lens of the "${discipline}" discipline. All examples, terminology, and recommendations must be professional, industry-standard, and specific to this field.`;
     },
     phase2: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The list must distinguish between the internal team roles required to manage the project and the roles expected to be provided by the subcontractor. Clearly label the subcontractor resources.' : '';
@@ -82,7 +80,7 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **SWOT Analysis** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a brief, cryptic SWOT analysis using professional jargon. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Use bullet points with minimal text. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are an expert project manager. Your task is to generate a **SWOT Analysis** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context below for guidance on the project's overall scope and vision.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nNow, perform a detailed SWOT analysis (Strengths, Weaknesses, Opportunities, Threats). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Also, outline a strategy for gathering support and securing buy-in from key stakeholders. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are an expert project manager. Your task is to generate a **SWOT Analysis** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context below for guidance on the project's overall scope and vision.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nNow, perform a detailed SWOT analysis (Strengths, Weaknesses, Opportunities, Threats). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Also, outline a strategy for gathering support and securing buy-in from key stakeholders. Your entire analysis must be framed through the lens of the "${discipline}" discipline. All terminology and examples must be professional, industry-standard, and specific to this field.`;
     },
     phase4: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The agenda must include specific items for aligning with the subcontractor, such as reviewing the communication plan, points of contact, and deliverable acceptance criteria.' : '';
@@ -91,7 +89,7 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Kickoff Briefing** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a minimal, bullet-point-only kickoff agenda. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are an expert project manager. Your task is to generate a **Kickoff Briefing** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nCreate a detailed agenda and briefing document for a project kickoff review. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The document should aim to align the team, confirm project objectives, and set clear expectations for deliverables and communication. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are an expert project manager. Your task is to generate a **Kickoff Briefing** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nCreate a detailed agenda and briefing document for a project kickoff review. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The document should aim to align the team, confirm project objectives, and set clear expectations for deliverables and communication. The entire briefing document must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     phase5: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The SOW must be written from the perspective of the internal company managing the project. It must clearly define the scope of work to be performed by the subcontractor versus the work and responsibilities retained by the internal team. Use separate sections or clear headings to make this distinction.' : '';
@@ -100,7 +98,7 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         if (mode === 'minimal') {
             return `You are an expert project manager. Your task is to generate a **Statement of Work (SOW)** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nDraft a minimal SOW. ${teamSizeInstruction} ${complexityInstruction} Use only section headings and one-line bullet points. Do not add a 'Resources' section. ${subcontractorInstruction} Be cryptic. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are an expert project manager. Your task is to generate a **Statement of Work (SOW)** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context below for guidance on the project's overall scope and vision. The SOW you create must be detailed and specific to the project name and discipline.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nNow, draft a detailed Statement of Work (SOW). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The SOW must be well-structured and use the following exact Markdown headings for its sections: "## Scope of Work", "## Deliverables", "## Acceptance Criteria", "## Project Assumptions", "## Key Constraints", and "## Exclusions (Out of Scope)". IMPORTANT: Do not include a separate section for team roles or resources; this information is defined in another document. You can refer to roles within the deliverables, but do not list the entire team or resource plan. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are an expert project manager. Your task is to generate a **Statement of Work (SOW)** for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context below for guidance on the project's overall scope and vision. The SOW you create must be detailed and specific to the project name and discipline.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nNow, draft a detailed Statement of Work (SOW). ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The SOW must be well-structured and use the following exact Markdown headings for its sections: "## Scope of Work", "## Deliverables", "## Acceptance Criteria", "## Project Assumptions", "## Key Constraints", and "## Exclusions (Out of Scope)". IMPORTANT: Do not include a separate section for team roles or resources; this information is defined in another document. You can refer to roles within the deliverables, but do not list the entire team or resource plan. Your entire response must be framed through the lens of the "${discipline}" discipline. All deliverables, criteria, and constraints must be professional, industry-standard, and specific to this field.`;
     },
     phase6: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include items to confirm the subcontractor\'s understanding and agreement with the SOW.' : '';
@@ -109,9 +107,13 @@ Your final output must be a single, raw JSON object, without any surrounding tex
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Preliminary Review** document for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a 3-point checklist for a Preliminary Design Review. Title it "Preliminary Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are an expert project manager. Your task is to generate a **Preliminary Review** document for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nFor the project "${name}", generate a comprehensive checklist for a Preliminary Design Review. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The checklist should ensure the Statement of Work (SOW) is complete, realistic, and has been signed off by all key stakeholders before detailed technical planning begins. This checklist document itself will be titled "Preliminary Review". You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are an expert project manager. Your task is to generate a **Preliminary Review** document for a project named "${name}" in the "${discipline}" discipline. Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nFor the project "${name}", generate a comprehensive checklist for a Preliminary Design Review. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The checklist should ensure the Statement of Work (SOW) is complete, realistic, and has been signed off by all key stakeholders before detailed technical planning begins. This checklist document itself will be titled "Preliminary Review". The entire checklist must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     phase7: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() + 14);
+        const projectStartDate = startDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+
         const wbsInstruction = complexity === 'easy' ? TEAM_SIZE_INSTRUCTIONS.wbs.small : complexity === 'complex' ? TEAM_SIZE_INSTRUCTIONS.wbs.large : TEAM_SIZE_INSTRUCTIONS.wbs.medium;
         const teamSizeInstruction = wbsInstruction;
         const complexityInstruction = COMPLEXITY_INSTRUCTIONS[complexity];
@@ -124,17 +126,8 @@ This is a subcontracted project. The task list MUST include a "Subcontractor" co
 
         if (mode === 'minimal') {
             const subcontractorMinimalInstruction = scope === 'subcontracted' ? `Include a "Subcontractor" column (Yes/No).` : '';
-            const subcontractorMinimalColumns = scope === 'subcontracted' ? `| Task Name | Role | Start Date | End Date | Dependencies | Sprint | Subcontractor |\n|---|---|---|---|---|---|---|` : `| Task Name | Role | Start Date | End Date | Dependencies | Sprint |\n|---|---|---|---|---|---|`;
-            const subcontractorMinimalExample = scope === 'subcontracted' ?
-`| Sprint 1 Design | UI/UX Designer | 2024-08-01 | 2024-08-07 | | Sprint 1 | Yes |
-| Sprint 1 Review | Lead Engineer | 2024-08-08 | 2024-08-08 | Sprint 1 Design | Sprint 1 | No |
-| Sprint 2 Build | Backend Developer | 2024-08-09 | 2024-08-15 | Sprint 1 Review | Sprint 2 | Yes |
-| Sprint 2 Review | Lead Engineer | 2024-08-16 | 2024-08-16 | Sprint 2 Build | Sprint 2 | No |` :
-`| Sprint 1 Design | UI/UX Designer | 2024-08-01 | 2024-08-07 | | Sprint 1 |
-| Sprint 1 Review | Lead Engineer | 2024-08-08 | 2024-08-08 | Sprint 1 Design | Sprint 1 |
-| Sprint 2 Build | Backend Developer | 2024-08-09 | 2024-08-15 | Sprint 1 Review | Sprint 2 |
-| Sprint 2 Review | Lead Engineer | 2024-08-16 | 2024-08-16 | Sprint 2 Build | Sprint 2 |`;
-
+            const subcontractorMinimalColumns = scope === 'subcontracted' ? `| Task Name | Role | Start Date | End Date | Duration (days) | Dependencies | Sprint | Subcontractor |` : `| Task Name | Role | Start Date | End Date | Duration (days) | Dependencies | Sprint |`;
+            
           return `You are an expert AI project planner. Your task is to generate a minimal but parseable project plan in Markdown format.
 --- HIGH-LEVEL CONTEXT ---
 ${context}
@@ -142,33 +135,23 @@ ${context}
 Generate a minimal project plan for "${name}".
 ${teamSizeInstruction}
 ${complexityInstruction}
-- WBS should be a bulleted list, 2 levels deep, max.
-- Task list should have 5 tasks, max. Use short names. It MUST be broken into 2 sprints and include at least one 'Review' task. Assign a relevant role to each task.
-- Each sprint's duration should be 7-14 days.
-- Milestones list should have 2 milestones, max.
+- The WBS should be a bulleted list, 2 levels deep at most.
+- The task list should have a maximum of 5 tasks, presented in chronological order.
+- The tasks must be divided into 2 sprints and include at least one 'Review' task. Assign a relevant role to each task.
+- Each sprint should last 7-14 days.
 - Do not include any explanations. All terminology must be professional and standard for the '${discipline}' field. ${subcontractorMinimalInstruction}
-CRITICAL: All dates MUST be in YYYY-MM-DD format. Roles must be selected from the provided context.
 
-## WBS
-- 1.0 Design
-  - 1.1 Sprints
-- 2.0 Build
-  - 2.1 Core
+CRITICAL INSTRUCTIONS:
+- The project MUST start on or after ${projectStartDate}.
+- All dates MUST be in YYYY-MM-DD format. Roles must be selected from the provided context.
+- The "Tasks" table MUST include a "Duration (days)" column, calculated inclusively from start and end dates.
+- The "Milestones" list MUST include at least 'Project Start', 'Sprint 1 Complete', and 'Project Completion'.
 
-## Tasks
-${subcontractorMinimalColumns}
-${subcontractorMinimalExample}
-
-## Milestones
-| Milestone Name | Date (YYYY-MM-DD) |
-|---|---|
-| Done | 2024-08-16 |
-
-NOW, GENERATE THE MINIMAL PLAN FOR THE "${name}" PROJECT. Your output must ONLY contain the markdown for "## WBS", "## Tasks", and "## Milestones".
+NOW, GENERATE THE MINIMAL PLAN FOR THE "${name}" PROJECT. Your output must ONLY contain the markdown for "## WBS", "## Tasks" (with the header: ${subcontractorMinimalColumns}), and "## Milestones".
 `;
         }
 
-        const subcontractorColumns = scope === 'subcontracted' ? `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint", "Subcontractor"` : `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Dependencies", "Sprint"`;
+        const subcontractorColumns = scope === 'subcontracted' ? `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Duration (days)", "Dependencies", "Sprint", "Subcontractor"` : `"Task Name", "Role", "Start Date (YYYY-MM-DD)", "End Date (YYYY-MM-DD)", "Duration (days)", "Dependencies", "Sprint"`;
 
         return `You are an expert AI project planner. Your task is to generate a complete and parseable project plan in Markdown format. Adhere STRICTLY to all formatting instructions. Do not add any conversational text or explanations.
 The project is named "${name}" in the "${discipline}" field. Use the high-level context below to infer deliverables and tasks.
@@ -180,25 +163,29 @@ ${context}
 ${teamSizeInstruction}
 ${complexityInstruction}
 
-CRITICAL INSTRUCTIONS FOR PARSING:
-1.  **Dates**: All dates in the "Start Date" and "End Date" columns for both Tasks and Milestones MUST be in the exact "YYYY-MM-DD" format. Do not use any other format (e.g., "August 1st, 2024"). The dates MUST be valid and sequential.
-2.  **Roles**: The "Role" for each task MUST be selected from the roles defined in the "Resources & Skills List" document provided in the context above. Do not invent new roles. If no specific roles are in the context, infer standard roles for the discipline.
-3.  **Dependencies**: The "Dependencies" column must contain the exact "Task Name" of one or more preceding tasks, separated by commas, or be empty.
-4.  **Markdown Format**: Adhere strictly to the Markdown table format for Tasks and Milestones, and a bulleted list for the WBS. A valid table MUST have a header row and a separator row (e.g., |---|---:|).
-5.  **Sprints**: ${sprintInstruction}
-6.  **Sprint Duration**: The duration of each sprint, from the start date of its first task to the end date of its last task, MUST be between 7 and 14 days.
-7.  **Logical Dependencies**: A task's "Dependencies" must ONLY list tasks that appear earlier in the table.
-8.  **No Commentary**: Your entire response must consist ONLY of the "## WBS", "## Tasks", and "## Milestones" sections. Do not include any introductory or concluding sentences.
+CRITICAL INSTRUCTIONS FOR PARSING AND CONTENT:
+1.  **Project Start Date**: The entire project plan MUST begin on or after ${projectStartDate}. All task and milestone dates must be relative to this start date.
+2.  **Dates**: All dates in the "Start Date" and "End Date" columns for both Tasks and Milestones MUST be in the exact "YYYY-MM-DD" format. Do not use any other format (e.g., "August 1st, 2024"). The dates MUST be valid and sequential.
+3.  **Duration**: The "Tasks" table MUST include a "Duration (days)" column. This value must be correctly calculated as the number of calendar days from the Start Date to the End Date, inclusive.
+4.  **Roles**: The "Role" for each task MUST be selected from the roles defined in the "Resources & Skills List" document provided in the context above. Do not invent new roles. If no specific roles are in the context, infer standard roles for the discipline.
+5.  **Dependencies**: The "Dependencies" column must contain the exact "Task Name" of one or more preceding tasks, separated by commas, or be empty.
+6.  **Markdown Format**: Adhere strictly to the Markdown table format for Tasks and Milestones, and a bulleted list for the WBS. A valid table MUST have a header row and a separator row (e.g., |---|---:|).
+7.  **Discipline-Specific Content**: All generated content, including WBS items, tasks, and milestones, must use professional, industry-standard terminology and conventions specific to the '${discipline}' field.
+8.  **Sprints**: ${sprintInstruction}
+9.  **Sprint Duration**: The duration of each sprint, from the start date of its first task to the end date of its last task, MUST be between 7 and 14 days.
+10. **Logical Dependencies**: A task's "Dependencies" must ONLY list tasks that appear earlier in the table.
+11. **Required Milestones**: The "Milestones" table MUST include the following specific milestones, with their dates estimated logically based on the task schedule you create: 'Project Start', 'Preliminary Design Review Complete', milestones for each Sprint's completion (e.g., 'Sprint 1 Complete', 'Sprint 2 Complete'), 'Critical Design Review Complete', and 'Project Completion'. You may add other relevant milestones for the discipline as well.
+12. **No Commentary**: Your entire response must consist ONLY of the "## WBS", "## Tasks", and "## Milestones" sections. Do not include any introductory or concluding sentences.
 
-The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. All dates must be sequential and logical. Ensure all task names and descriptions use professional, industry-standard terminology specific to the '${discipline}' field. ${subcontractorInstruction}
+The task list MUST include several formal review tasks, such as "Sprint Plan Review" and "Critical Design Review", at appropriate points in the timeline. All dates must be sequential and logical. ${subcontractorInstruction}
 
 NOW, GENERATE THE PLAN FOR THE "${name}" PROJECT.
 
 ## WBS
-Create a Work Breakdown Structure as a multi-level bulleted list.
+Create a Work Breakdown Structure as a multi-level bulleted list. The tasks in the WBS should be presented in chronological order.
 
 ## Tasks
-Create a detailed task list in a Markdown table with the columns: ${subcontractorColumns}.
+Create a detailed task list in a Markdown table with the columns: ${subcontractorColumns}. The tasks must be in chronological order.
 
 ## Milestones
 Create a list of key milestones in a Markdown table with the columns: "Milestone Name", "Date (YYYY-MM-DD)".
@@ -211,7 +198,7 @@ Create a list of key milestones in a Markdown table with the columns: "Milestone
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Sprint Requirements** document (or **User Story Backlog**) for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a minimal, bullet-point list of sprint requirements. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} Use 2-3 bullet points total. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are a project manager. Your task is to generate a **Sprint Requirements** document (or **User Story Backlog**) for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a detailed set of requirements and task lists for all planned sprints. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are a project manager. Your task is to generate a **Sprint Requirements** document (or **User Story Backlog**) for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a detailed set of requirements and task lists for all planned sprints. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The entire document must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     phase8_sprintPlanReview: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include items to verify subcontractor tasks are properly defined and aligned with the SOW.' : '';
@@ -220,7 +207,7 @@ Create a list of key milestones in a Markdown table with the columns: "Milestone
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Sprint Plan Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a minimal, 3-point checklist for a "Sprint Plan Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are a project manager. Your task is to generate a **Sprint Plan Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a checklist for conducting a peer review of each sprint plan. This is a formal review document titled "Sprint Plan Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are a project manager. Your task is to generate a **Sprint Plan Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a checklist for conducting a peer review of each sprint plan. This is a formal review document titled "Sprint Plan Review". ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} The entire checklist must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     phase8_criticalReview: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include a final alignment check with the subcontractor before execution begins.' : '';
@@ -229,7 +216,7 @@ Create a list of key milestones in a Markdown table with the columns: "Milestone
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Critical Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a minimal, 3-point checklist for a "Critical Review". The checklist must include a check for team assignments. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are a project manager. Your task is to generate a **Critical Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a final, high-level checklist titled "Critical Review". This formal review document should ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} CRITICAL: This checklist must include a bullet point to "- **Team Assignments:** Confirm all project roles have been assigned a team member in the 'Project Tracking > Team' view." You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are a project manager. Your task is to generate a **Critical Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a final, high-level checklist titled "Critical Review". This formal review document should ensure all sprint plans are cohesive, all dependencies are resolved, and the project is ready for full-scale execution. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} CRITICAL: This checklist must include a bullet point to "- **Team Assignments:** Confirm all project roles have been assigned a team member in the 'Project Tracking > Team' view." The entire document must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     phase8_generic: (docTitle, name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? `Ensure the content reflects the subcontracted nature of the project where relevant.` : '';
@@ -249,7 +236,7 @@ ${context}
 ${teamSizeInstruction}
 ${complexityInstruction}
 ${subcontractorInstruction}
-You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+Your response must be entirely tailored to the "${discipline}" discipline. All content must use professional, industry-standard terminology, structures, and examples specific to this field.`;
     },
     genericDocumentPrompt: (docTitle, phase, name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? `Ensure the content reflects the subcontracted nature of the project where relevant.` : '';
@@ -270,7 +257,7 @@ ${contextSection}
 ${teamSizeInstruction}
 ${complexityInstruction}
 ${subcontractorInstruction}
-You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+Your response must be entirely tailored to the "${discipline}" discipline. All content must use professional, industry-standard terminology, structures, and examples specific to this field.`;
     },
     phase9: (name, discipline, context, mode = 'fullscale', scope = 'internal', teamSize = 'medium', complexity = 'typical') => {
         const subcontractorInstruction = scope === 'subcontracted' ? 'The checklist must include a final sign-off from the subcontractor for their portion of the work.' : '';
@@ -279,7 +266,7 @@ You must use professional, industry-standard terminology, structures, and exampl
         if (mode === 'minimal') {
             return `You are a project manager. Your task is to generate a **Deployment Readiness Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a 3-point Deployment Readiness checklist and a concluding "init tracking" statement. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} This is a formal review document. All terminology must be specific to the '${discipline}' field.`;
         }
-        return `You are a project manager. Your task is to generate a **Deployment Readiness Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a Deployment Readiness Review checklist. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} This document should confirm that all development is complete, testing has been passed, and all stakeholders have approved the launch. Finally, add a concluding statement that the project tracking tool should now be initialized with all data from the planning phases, marking the official start of the execution phase. This is a formal review document. You must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
+        return `You are a project manager. Your task is to generate a **Deployment Readiness Review** document for project "${name}". Use the provided high-level project context for guidance.\n\n--- HIGH-LEVEL CONTEXT ---\n${context}\n-------------------------\n\nGenerate a Deployment Readiness Review checklist. ${teamSizeInstruction} ${complexityInstruction} ${subcontractorInstruction} This document should confirm that all development is complete, testing has been passed, and all stakeholders have approved the launch. Finally, add a concluding statement that the project tracking tool should now be initialized with all data from the planning phases, marking the official start of the execution phase. This is a formal review document. The entire document must use professional, industry-standard terminology, structures, and examples specific to the '${discipline}' field.`;
     },
     estimateChangeImpact: (projectName, discipline, totalBudget, changeRequest) => `
 You are a project management cost and schedule estimation AI for a project named "${projectName}" in the "${discipline}" field. The total project budget is ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalBudget)}.

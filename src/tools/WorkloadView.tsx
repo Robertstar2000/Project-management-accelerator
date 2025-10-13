@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import { Project } from '../types';
 import { parseRolesFromMarkdown } from '../utils/be-logic';
@@ -79,13 +78,20 @@ export const WorkloadView: React.FC<WorkloadViewProps> = ({ project }) => {
                 if (taskStart <= weekEnd && taskEnd >= weekStart) {
                     tasksInWeek.push(task);
                     
-                    // Calculate days of this task within this week
+                    // Calculate workdays of this task within this week, excluding weekends
                     const overlapStart = new Date(Math.max(taskStart.getTime(), weekStart.getTime()));
                     const overlapEnd = new Date(Math.min(taskEnd.getTime(), weekEnd.getTime()));
                     
-                    const durationInMillis = overlapEnd.getTime() - overlapStart.getTime();
-                    const days = Math.round(durationInMillis / (1000 * 60 * 60 * 24)) + 1;
-                    totalDaysInWeek += days;
+                    let workDays = 0;
+                    let currentDay = new Date(overlapStart);
+                    while (currentDay <= overlapEnd) {
+                        const dayOfWeek = currentDay.getDay(); // 0 = Sunday, 6 = Saturday
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+                            workDays++;
+                        }
+                        currentDay.setDate(currentDay.getDate() + 1);
+                    }
+                    totalDaysInWeek += workDays;
                 }
             });
             
